@@ -1,0 +1,104 @@
+updateProject.mdp
+Values are little-endian
+The file consists of a series of blocks.
+
+Block:
+Offset	Length
+0	2		N 
+2	N-2		Block data
+
+First block:
+Offset	Length
+0	2		Block length (16)
+2	2		Total length for file
+4	2		Number of screens
+6	2		Index of default screen
+8	2		0x0001
+10	2		0x0001
+12	2		1 - USB, 2 - CAN
+14	2		0x0000
+
+
+Screen header
+0	2		Block length
+2	2		Screen index
+4	2		Number of variables
+6	2		Number of widgets
+8	2		Number of event blocks
+
+Tap event:
+0	2		Block length
+2	2		0x0001
+4	2		x
+6	2		y
+8	2		width
+10	2		height
+12	1		1 - Target, 2 - Value
+13	1		Value index
+14	2		Target/Value
+
+Swipe events:
+0	2		Block length
+2	2		0x0002
+4	2		Widget swipe up target 0 for none
+6	2		Widget swipe down target
+8	2		Widget swipe left target
+10	2		Widget swipe right target
+
+Rotate events:
+0	2		Block length
+2	2		0x0003
+4	2		CW target
+6	2		CCW target
+
+
+Background image:
+0	2		Block length
+2	2		Element index
+4	2		0x0001
+6	2		0x0000
+8	2		0x0000
+10	n		Zero terminated string
+
+Ring widget:
+0	2		Block length
+2	2		Element index
+4	2		0x0005
+6	2		0x0000
+8	2		0x0000
+10	2		End angle
+12	2		Start angle
+14	2		Radius
+16	2		Value index
+18 	e		Empty ring image (320x320 px)
+18+e	f		Full ring image (320x320 px)
+18+e+f	c		Cursor image (40x40 px)
+
+Text:
+0	2		Block length
+2	2		Element index
+4	2		0x0004
+6	2		x
+8	2		y
+10	1		Blue
+11	1		Green
+12	1		Red
+12	1		ff (Pad?)
+14	1		Font index
+15	1		Font size
+16	1		Flags 0x01 - Prefix follows, 0x04 - Suffix follows, 0x02 - Always set
+17	1		Value index
+18	p		Prefix. NUL-terminated
+18+p	s		Suffix. NUL-terminated
+
+Variable:
+0	2		Block length
+2	1		Index
+3	1		Flags: 0x01 - step when rotating, 0x02 - always set
+4	2		Start value
+6	2		Min value
+8	2		Max value
+10	2		Step
+12	2		0x0000
+
+Strings are NUL-terminated and encoded as IS8859-1. Padded to even number of bytes
