@@ -48,6 +48,7 @@ public class XMLProject {
 			writeIndent();
 			xml.writeEmptyElement(localName);
 		}
+
 		void writeAttribute(String localName, String value) throws XMLStreamException {
 			xml.writeAttribute(localName, value);
 		}
@@ -86,14 +87,14 @@ public class XMLProject {
 			for (Variable v : screen.vars) {
 				writeVariable(v);
 			}
-			for (Widget w: screen.widgets) {
+			for (Widget w : screen.widgets) {
 
 				if (w instanceof Image) {
 					writeImage((Image) w);
 				} else if (w instanceof Text) {
 					writeText((Text) w);
 				} else if (w instanceof Ring) {
-					writeRing((Ring)w);
+					writeRing((Ring) w);
 				}
 			}
 			for (Event e : screen.events) {
@@ -116,7 +117,7 @@ public class XMLProject {
 			writeAttribute("max", Integer.toString(variable.maxValue));
 			writeAttribute("start", Integer.toString(variable.startValue));
 			writeAttribute("step", Integer.toString(variable.valueStep));
-		
+			writeAttribute("ring", ((variable.flags & Variable.FLAGS_RING_ADJUST) != 0) ? "adjust" : "ignore");
 
 		}
 
@@ -125,22 +126,23 @@ public class XMLProject {
 			writeAttribute("x", Integer.toString(w.x));
 			writeAttribute("y", Integer.toString(w.y));
 		}
+
 		void writeImage(Image w) throws XMLStreamException {
 			writeEmptyElement("image");
 			widgetAttrs(w);
 			writeAttribute("filename", w.filename);
 		}
-		static public String rgbhex(int r, int g, int b)
-		{
-			return String.format("#%02X%02X%02X",r,g,b);
+
+		static public String rgbhex(int r, int g, int b) {
+			return String.format("#%02X%02X%02X", r, g, b);
 		}
-		
+
 		void writeText(Text w) throws XMLStreamException {
 			writeEmptyElement("text");
 			widgetAttrs(w);
 			writeAttribute("font-index", Integer.toString(w.fontIndex));
 			writeAttribute("font-size", Integer.toString(w.fontSize));
-			writeAttribute("color", rgbhex(w.red,w.green,w.blue));
+			writeAttribute("color", rgbhex(w.red, w.green, w.blue));
 			writeAttribute("value-index", Integer.toString(w.valueIndex));
 			if (w.prefix != null) {
 				writeAttribute("prefix", w.prefix);
@@ -148,8 +150,9 @@ public class XMLProject {
 			if (w.suffix != null) {
 				writeAttribute("suffix", w.suffix);
 			}
-			
+
 		}
+
 		void writeRing(Ring w) throws XMLStreamException {
 			writeEmptyElement("ring");
 			widgetAttrs(w);
@@ -161,18 +164,17 @@ public class XMLProject {
 			writeAttribute("full", w.fullRingImage);
 			writeAttribute("cursor", w.cursorImage);
 		}
-		
+
 		void writeGoto(int screen) throws XMLStreamException {
 			writeEmptyElement("goto");
 			writeAttribute("screen", Screen.indexToString(screen));
-		
 		}
 
 		void writeSet(int value_index, int value) throws XMLStreamException {
 			writeEmptyElement("set");
 			writeAttribute("value-index", Integer.toString(value_index));
 			writeAttribute("value", Integer.toString(value));
-			
+
 		}
 
 		void writeTapEvent(TapEvent event) throws XMLStreamException {
@@ -221,32 +223,29 @@ public class XMLProject {
 		xml.writeProject(proj);
 		xml_writer.writeEndDocument();
 	}
-	
+
 	static class Reader {
 		XMLStreamReader xml;
-		
+
 		public Reader(XMLStreamReader xml) {
 			this.xml = xml;
 		}
-		
-		void nextStartElement() throws XMLStreamException
-		{
+
+		void nextStartElement() throws XMLStreamException {
 			if (xml.nextTag() != XMLStreamReader.START_ELEMENT) {
 				throw new XMLStreamException("No start tag found");
 			}
-			
+
 		}
-		
-		void nextEndElement() throws XMLStreamException
-		{
+
+		void nextEndElement() throws XMLStreamException {
 			if (xml.nextTag() != XMLStreamReader.END_ELEMENT) {
 				throw new XMLStreamException("No end tag found");
 			}
-			
+
 		}
-		
-		void nextStartElement(String name) throws XMLStreamException
-		{
+
+		void nextStartElement(String name) throws XMLStreamException {
 			nextStartElement();
 			if (!xml.getNamespaceURI().equals(NS)) {
 				throw new XMLStreamException("Incorrect namespace");
@@ -314,7 +313,7 @@ public class XMLProject {
 			String get(String name, String def) {
 				String value = attrs.get(name);
 				return (value != null) ? value : def;
-				
+
 			}
 
 			int getInteger(String name) throws XMLStreamException {
@@ -351,11 +350,11 @@ public class XMLProject {
 							"Illegal screen index value for attribute " + name + " at line " + line);
 				}
 			}
-			int[]  getColor(String name) throws XMLStreamException {
+
+			int[] getColor(String name) throws XMLStreamException {
 				String s = get(name);
 				if (!s.substring(0, 1).equals("#")) {
-					throw new XMLStreamException(
-							"Color hex triple must start with # at line " + line);
+					throw new XMLStreamException("Color hex triple must start with # at line " + line);
 				}
 				try {
 					int[] rgb = new int[3];
@@ -366,12 +365,10 @@ public class XMLProject {
 				} catch (NumberFormatException e) {
 					throw new XMLStreamException("Illegal color value for attribute " + name + " at line " + line);
 				}
-				
+
 			}
 		}
 
-		
-		
 		Variable readVariable() throws XMLStreamException {
 			Variable var = new Variable();
 
@@ -383,12 +380,15 @@ public class XMLProject {
 
 			var.startValue = attrs.getInteger("start");
 			var.valueStep = attrs.getInteger("step", 1);
-			var.flags = attrs.getInteger("flags", 0x03);
+			var.flags = attrs.getInteger("flags", Variable.FLAGS_UNUSED_VALUE);
+			if (attrs.get("ring") == "adjust") {
+				var.flags |= Variable.FLAGS_RING_ADJUST;
+			}
 			nextEndElement("variable");
 			return var;
 		}
-		
-		 Image readImage() throws XMLStreamException {
+
+		Image readImage() throws XMLStreamException {
 			Image image = new Image();
 			AttributeLookup attrs = new AttributeLookup(xml);
 			image.index = attrs.getInteger("index");
@@ -399,8 +399,6 @@ public class XMLProject {
 			return image;
 		}
 
-		
-				 
 		Ring readRing() throws XMLStreamException {
 			Ring ring = new Ring();
 			AttributeLookup attrs = new AttributeLookup(xml);
@@ -434,11 +432,11 @@ public class XMLProject {
 			text.y = attrs.getInteger("y");
 			text.fontIndex = attrs.getInteger("font-index");
 			text.fontSize = attrs.getInteger("font-size");
-			int [] rgb = attrs.getColor("color");
+			int[] rgb = attrs.getColor("color");
 			text.red = rgb[0];
 			text.green = rgb[1];
 			text.blue = rgb[2];
-			System.err.println("Color: "+Writer.rgbhex(text.red, text.green, text.blue));
+			System.err.println("Color: " + Writer.rgbhex(text.red, text.green, text.blue));
 			text.valueIndex = attrs.getInteger("value-index");
 			text.prefix = attrs.get("prefix", null);
 			text.suffix = attrs.get("suffix", null);
@@ -446,24 +444,22 @@ public class XMLProject {
 			return text;
 		}
 
-		int readGoto() throws XMLStreamException 
-		{
+		int readGoto() throws XMLStreamException {
 			AttributeLookup attrs = new AttributeLookup(xml);
 			int screen = attrs.getScreenIndex("screen");
 			nextEndElement("goto");
 			return screen;
 		}
-		
-		int[] readSet() throws XMLStreamException 
-		{
+
+		int[] readSet() throws XMLStreamException {
 			AttributeLookup attrs = new AttributeLookup(xml);
-			int [] set = new int[2];
+			int[] set = new int[2];
 			set[0] = attrs.getScreenIndex("value-index");
 			set[1] = attrs.getScreenIndex("value");
 			nextEndElement("set");
 			return set;
 		}
-		
+
 		SwipeEvent readSwipe(SwipeEvent swipe) throws XMLStreamException {
 			String startTag = xml.getLocalName();
 			nextStartElement("goto");
@@ -491,7 +487,7 @@ public class XMLProject {
 			nextEndElement(startTag);
 			return swipe;
 		}
-		
+
 		RotateEvent readRotate(RotateEvent rotate) throws XMLStreamException {
 			String startTag = xml.getLocalName();
 			nextStartElement("goto");
@@ -513,25 +509,26 @@ public class XMLProject {
 			nextEndElement(startTag);
 			return rotate;
 		}
+
 		TapEvent readTap() throws XMLStreamException {
 			TapEvent tap = new TapEvent();
 			AttributeLookup attrs = new AttributeLookup(xml);
-			
+
 			tap.x = attrs.getInteger("x");
 			tap.y = attrs.getInteger("y");
 			tap.width = attrs.getInteger("width");
 			tap.height = attrs.getInteger("height");
-			if (xml.nextTag() != XMLStreamReader.START_ELEMENT ) {
+			if (xml.nextTag() != XMLStreamReader.START_ELEMENT) {
 				throw new XMLStreamException("Expected start tag at line " + xml.getLocation().getLineNumber());
 			}
-			switch(xml.getLocalName()) {
+			switch (xml.getLocalName()) {
 			case "goto":
 				int screen = readGoto();
 				tap.action = Action.GotoScreen;
 				tap.arg = screen;
 				break;
 			case "set":
-				int [] set = readSet();
+				int[] set = readSet();
 				tap.valueIndex = set[0];
 				tap.arg = set[1];
 				tap.action = Action.SetValue;
@@ -540,7 +537,7 @@ public class XMLProject {
 			nextEndElement("tap");
 			return tap;
 		}
-		
+
 		Screen readScreen() throws XMLStreamException {
 
 			Screen screen = new Screen();
@@ -555,7 +552,7 @@ public class XMLProject {
 					Variable var = readVariable();
 					screen.vars.add(var);
 				} else if (xml.getLocalName().equals("image")) {
-					Image image= readImage();
+					Image image = readImage();
 					screen.widgets.add(image);
 				} else if (xml.getLocalName().equals("text")) {
 					Text text = readText();
@@ -570,12 +567,13 @@ public class XMLProject {
 				} else if (xml.getLocalName().equals("tap")) {
 					TapEvent tap = readTap();
 					screen.events.add(tap);
-				} else{
-					throw new XMLStreamException("Expected variable, widget or event element, got "+ xml.getLocalName());
+				} else {
+					throw new XMLStreamException(
+							"Expected variable, widget or event element, got " + xml.getLocalName());
 				}
 			}
 			if (!xml.getLocalName().equals("screen")) {
-				throw new XMLStreamException("Expected end of screen, got "+ xml.getLocalName());
+				throw new XMLStreamException("Expected end of screen, got " + xml.getLocalName());
 			}
 			if (swipe != null) {
 				screen.events.add(swipe);
@@ -585,9 +583,9 @@ public class XMLProject {
 			}
 			return screen;
 		}
-		
-		public Project readProject() throws XMLStreamException{
-			
+
+		public Project readProject() throws XMLStreamException {
+
 			Project proj = new Project();
 			nextStartElement("project");
 			AttributeLookup attrs = new AttributeLookup(xml);
@@ -603,28 +601,29 @@ public class XMLProject {
 				throw new XMLStreamException("Unknown interface type " + iface_str);
 			}
 			proj.defaultScreen = attrs.getInteger("default-screen", 1);
-			
-			while(true) {
-				if (xml.nextTag() == XMLStreamReader.END_ELEMENT) break;
+
+			while (true) {
+				if (xml.nextTag() == XMLStreamReader.END_ELEMENT)
+					break;
 				if (xml.getLocalName().equals("screen")) {
 					Screen screen = readScreen();
 					proj.screens.add(screen);
 				} else {
-					throw new XMLStreamException("Expected screen element, got "+ xml.getLocalName());
+					throw new XMLStreamException("Expected screen element, got " + xml.getLocalName());
 				}
 			}
 			if (!xml.getLocalName().equals("project")) {
-				throw new XMLStreamException("Expected end of project, got "+ xml.getLocalName());
+				throw new XMLStreamException("Expected end of project, got " + xml.getLocalName());
 			}
 			return proj;
 		}
-		
+
 	}
-	
+
 	static public Project readProject(XMLStreamReader xml_reader) throws XMLStreamException {
 		Reader xml = new Reader(xml_reader);
-		
+
 		return xml.readProject();
-		
+
 	}
 }

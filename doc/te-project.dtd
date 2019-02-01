@@ -15,6 +15,7 @@
 <!ATTLIST variable max CDATA #REQUIRED>
 <!ATTLIST variable start CDATA #REQUIRED>
 <!ATTLIST variable step CDATA "1">
+<!ATTLIST variable ring (adjust | ignore) "ignore">
 
 <!ELEMENT image EMPTY>
 <!ATTLIST image index CDATA #REQUIRED>
