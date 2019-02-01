@@ -21,6 +21,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
+import java.util.TreeMap;
 import java.util.prefs.Preferences;
 
 import javax.swing.*;
@@ -39,6 +40,8 @@ import se.fluffware.grayhill.te.project.BinaryProject;
 import se.fluffware.grayhill.te.project.Image;
 import se.fluffware.grayhill.te.project.PackageFile;
 import se.fluffware.grayhill.te.project.Project;
+import se.fluffware.grayhill.te.project.ProjectUtils;
+import se.fluffware.grayhill.te.project.ProjectUtils.CheckException;
 import se.fluffware.grayhill.te.project.Resources;
 import se.fluffware.grayhill.te.project.Ring;
 import se.fluffware.grayhill.te.project.Screen;
@@ -170,6 +173,7 @@ public abstract class TE_tool {
 						documentChanged = false;
 						
 						setTitle();
+						prefs.put(UserPrefs.CurrentProjDir, opened_file.getParentFile().toString());
 					}
 				});
 				
@@ -221,7 +225,7 @@ public abstract class TE_tool {
 				JFileChooser chooser = new JFileChooser();
 				FileNameExtensionFilter filter = new FileNameExtensionFilter("Project definitions", "XML");
 				chooser.setFileFilter(filter);
-				File default_dir = new File(prefs.get(UserPrefs.CurrentProjDir, null));	
+				File default_dir = UserPrefs.getFile(prefs,UserPrefs.CurrentProjDir);	
 				chooser.setCurrentDirectory(default_dir);
 				int returnVal = chooser.showOpenDialog(XMLEditor.this);
 				if (returnVal == JFileChooser.APPROVE_OPTION) {
@@ -249,14 +253,13 @@ public abstract class TE_tool {
 
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				// TODO Auto-generated method stub
 				JFileChooser chooser = new JFileChooser();
 				FileNameExtensionFilter filter = new FileNameExtensionFilter("Project definitions", "XML");
 				chooser.setFileFilter(filter);
 				if (opened_file != null) {
 					chooser.setSelectedFile(opened_file);
 				} else {
-					File default_dir = new File(prefs.get(UserPrefs.CurrentProjDir, "."));	
+					File default_dir = UserPrefs.getFile(prefs,UserPrefs.CurrentProjDir);	
 					chooser.setCurrentDirectory(default_dir);
 				}
 				int returnVal = chooser.showSaveDialog(XMLEditor.this);
@@ -268,6 +271,15 @@ public abstract class TE_tool {
 
 		}
 
+		static File replaceExtension(File file, String new_ext) {
+			String name = file.getName();
+			int ext_start = name.lastIndexOf('.');
+			if (ext_start > 0) {
+				name = name.substring(0, ext_start);
+			}
+			return new File(file.getParentFile(), name+"."+new_ext);
+		}
+		
 		class ExportAction extends AbstractAction {
 
 			/**
@@ -283,6 +295,7 @@ public abstract class TE_tool {
 				putValue(MNEMONIC_KEY, KeyEvent.VK_E);
 			}
 
+			
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				try {
@@ -291,18 +304,65 @@ public abstract class TE_tool {
 					XMLStreamReader xml = XMLInputFactory.newInstance().createXMLStreamReader(xml_text);
 
 					Project proj = XMLProject.readProject(xml);
+					ProjectUtils.checkProject(proj);
 					if (opened_file != null) {
-						File proj_dir = opened_file.getParentFile();
-						File bin_proj = proj_dir.toPath().resolve("package").resolve("updateProject.mdp").toFile();
+						Path proj_dir = opened_file.getParentFile().toPath();
+						Path package_dir = proj_dir.resolve("package");
+						Path image_dir = package_dir.resolve("updateImages");
+						if (!package_dir.toFile().exists() && !package_dir.toFile().mkdirs()) {
+							JOptionPane.showMessageDialog(XMLEditor.this,
+									"Failed to create directory "+package_dir.toString());
+							return;
+						}
+						if (!image_dir.toFile().exists() && !image_dir.toFile().mkdirs()) {
+							JOptionPane.showMessageDialog(XMLEditor.this,
+									"Failed to create directory "+image_dir.toString());
+							return;
+						}
+						File bin_proj = package_dir.resolve("updateProject.mdp").toFile();
+						TreeMap<String, String> map = new TreeMap<String, String>();
 						try {
+							ProjectUtils.remapImages(proj, map);
+							ProjectUtils.remapFonts(proj, map);
 							BinaryProject.saveProject(bin_proj, proj);
 						} catch (IOException e) {
 							JOptionPane.showMessageDialog(XMLEditor.this,
-									"Failed to save binary project file "+bin_proj.getName()+": " + e.getMessage());
+									"Failed to save binary project file " + bin_proj.getName() + ": " + e.getMessage());
+							return;
+						}
+						try {
+							ProjectUtils.copyMappedFiles(map, proj_dir, image_dir);
+						} catch (IOException e) {
+							JOptionPane.showMessageDialog(XMLEditor.this,
+									"Failed to copy files to package: " + e.getMessage());
+							return;
+						}
+						JFileChooser chooser = new JFileChooser();
+						chooser.setDialogTitle("Save project archive");
+						FileNameExtensionFilter filter = new FileNameExtensionFilter("Binary package", "zip");
+						chooser.setFileFilter(filter);
+						File archive_dir = new File(
+								prefs.get(UserPrefs.ArchiveDir, prefs.get(UserPrefs.CurrentProjDir, ".")));
+						
+						File archive_file = new File(archive_dir,replaceExtension(opened_file,"zip").getName());
+						chooser.setSelectedFile(archive_file);
+						int returnVal = chooser.showSaveDialog(XMLEditor.this);
+						if (returnVal != JFileChooser.APPROVE_OPTION) {
+							return;
+						}
+						prefs.put(UserPrefs.ArchiveDir, chooser.getSelectedFile().getParent().toString());
+						try {
+							PackageFile.packFromDir(chooser.getSelectedFile(), package_dir.toFile());
+						} catch (IOException ex) {
+							JOptionPane.showMessageDialog(XMLEditor.this,
+									"Failed create package archive: " + ex.getMessage());
+							return;
 						}
 					}
 				} catch (XMLStreamException e) {
 					JOptionPane.showMessageDialog(XMLEditor.this, "Failed to read XML document: "+e.getMessage());
+				} catch (CheckException ec) {
+					JOptionPane.showMessageDialog(XMLEditor.this, "Checks failed for project: "+ec.getMessage());
 				}
 				
 			}
@@ -330,7 +390,7 @@ public abstract class TE_tool {
 				chooser.setDialogTitle("Import project");
 				FileNameExtensionFilter filter = new FileNameExtensionFilter("Binary project or package", "mdp", "zip");
 				chooser.setFileFilter(filter);
-				File default_dir = new File(prefs.get(UserPrefs.ImportDir, "."));	
+				File default_dir = UserPrefs.getFile(prefs, UserPrefs.ImportDir);	
 				chooser.setCurrentDirectory(default_dir);
 				int returnVal = chooser.showOpenDialog(XMLEditor.this);
 				if (returnVal == JFileChooser.APPROVE_OPTION) {
@@ -342,7 +402,7 @@ public abstract class TE_tool {
 						JFileChooser dest_chooser = new JFileChooser();
 						dest_chooser.setDialogTitle("Project directory");
 						dest_chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-						File proj_dir = new File(prefs.get(UserPrefs.CurrentProjDir, "."));	
+						File proj_dir = UserPrefs.getFile(prefs,UserPrefs.CurrentProjDir);	
 						dest_chooser.setCurrentDirectory(proj_dir);
 						int destReturnVal = dest_chooser.showOpenDialog(XMLEditor.this);
 						if (destReturnVal != JFileChooser.APPROVE_OPTION) {
@@ -412,7 +472,7 @@ public abstract class TE_tool {
 								System.err.println(s);
 								if (!from.renameTo(to)) {
 									JOptionPane.showMessageDialog(XMLEditor.this,
-											"Couldn't move " + from.toString() + " to " + toString());
+											"Couldn't move " + from.toString() + " to " + to.toString());
 									return;
 								}
 							}

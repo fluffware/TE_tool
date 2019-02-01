@@ -8,8 +8,8 @@ public class Project {
 		CAN,
 		USB
 	}
-	public int defaultScreen;
-	public InterfaceType iface;
+	public int defaultScreen = -1;
+	public InterfaceType iface = InterfaceType.Invalid;
 	public List<Screen> screens = new ArrayList<Screen>();
 	
 }

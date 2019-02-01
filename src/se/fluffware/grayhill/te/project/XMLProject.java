@@ -12,10 +12,7 @@ import se.fluffware.grayhill.te.project.TapEvent.Action;
 public class XMLProject {
 	static public final String NS = "http://www.fluffware.se/ns/TE-project";
 
-	static String screenIndexToString(int index) {
-		return (index & 0xff) + "." + (index >> 8);
-	}
-
+	
 	static class Writer {
 		XMLStreamWriter xml;
 		int indent = 0;
@@ -85,7 +82,7 @@ public class XMLProject {
 		void writeScreen(Screen screen) throws XMLStreamException {
 
 			writeStartElement("screen");
-			writeAttribute("index", screenIndexToString(screen.index));
+			writeAttribute("index", Screen.indexToString(screen.index));
 			for (Variable v : screen.vars) {
 				writeVariable(v);
 			}
@@ -167,7 +164,7 @@ public class XMLProject {
 		
 		void writeGoto(int screen) throws XMLStreamException {
 			writeEmptyElement("goto");
-			writeAttribute("screen", screenIndexToString(screen));
+			writeAttribute("screen", Screen.indexToString(screen));
 		
 		}
 

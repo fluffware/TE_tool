@@ -86,7 +86,7 @@ public class BinaryProject {
 		int blockLength = in.readUnsignedShort();
 		if (blockLength != 14) throw new Exception("Wrong length for variable block");
 		var.index = in.readUnsignedByte();
-		if (in.readUnsignedByte() != 3) throw new Exception("Unexpected value at offset 3 in variable block");
+		if ((in.readUnsignedByte() & 0xfffe)!= 2) throw new Exception("Unexpected value at offset 3 in variable block");
 		var.startValue = in.readSignedShort();
 		var.minValue = in.readSignedShort();
 		var.maxValue = in.readSignedShort();

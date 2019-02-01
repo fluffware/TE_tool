@@ -2,7 +2,7 @@ package se.fluffware.grayhill.te.project;
 
 public class TapEvent extends Event
 {
-	enum Action
+	static enum Action
 	{
 		GotoScreen,
 		SetValue
