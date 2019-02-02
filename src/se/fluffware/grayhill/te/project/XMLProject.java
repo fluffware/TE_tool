@@ -381,7 +381,7 @@ public class XMLProject {
 			var.startValue = attrs.getInteger("start");
 			var.valueStep = attrs.getInteger("step", 1);
 			var.flags = attrs.getInteger("flags", Variable.FLAGS_UNUSED_VALUE);
-			if (attrs.get("ring") == "adjust") {
+			if ("adjust".equals(attrs.get("ring"))) {
 				var.flags |= Variable.FLAGS_RING_ADJUST;
 			}
 			nextEndElement("variable");
