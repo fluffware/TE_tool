@@ -398,7 +398,10 @@ public abstract class TE_tool {
 					prefs.put(UserPrefs.ImportDir, file.getParent().toString());
 					System.err.println("Path: " + file.toPath().toString());
 					final File proj_file;
-					if (file.toString().endsWith(".zip")) {
+					if (file.toString().toLowerCase().endsWith(".zip")) {
+						String filename = file.toPath().getFileName().toString();
+						String proj_basename = filename.substring(0, filename.length() - 4);
+						
 						JFileChooser dest_chooser = new JFileChooser();
 						dest_chooser.setDialogTitle("Project directory");
 						dest_chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -428,7 +431,8 @@ public abstract class TE_tool {
 									"File " + file.getName() + " does not exist in package");
 							return;
 						}
-						proj_file = dest_dir.toPath().resolve("proj.xml").toFile();
+						
+						proj_file = dest_dir.toPath().resolve(proj_basename+".xml").toFile();
 						
 					} else {
 						proj_file = null;

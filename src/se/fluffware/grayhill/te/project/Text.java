@@ -2,12 +2,10 @@ package se.fluffware.grayhill.te.project;
 
 public class Text extends Widget
 {
-	public int red;
-	public int green;
-	public int blue;
+	Color color;
 	public int fontIndex;
 	public int fontSize;
-	public int valueIndex;
+	public int valueID;
 	public String prefix;
 	public String suffix;
 }

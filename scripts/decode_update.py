@@ -21,6 +21,9 @@ def get_strz(raw, start):
         end += 1
     return (string, end)
 
+def print_block(block):
+    print(("# %3d; " % (len(block)+2)) + " ".join("%02x" % b for b in block))
+    
 parser = argparse.ArgumentParser(description='Print content of project file.')
 parser.add_argument('file', metavar='FILE', type=str,
                     help='input file')
@@ -42,7 +45,8 @@ block = read_block(file)
 (left,) = struct.unpack("<H",block[0:2])
 file.left = left - (len(block) + 2)
 if dump_blocks:
-    print("# " +" ".join("%02x" % b for b in block))
+    print_block(block)
+
 print("Header:");
 (flen, screens, default, p1,p2, interface, p3) = struct.unpack("<HHHHHHH",block)
 if interface == 1:
@@ -58,26 +62,30 @@ if p1 != 1 or p2 != 1 or p3 != 0:
 while file.left > 0:
     header = read_block(file)
     if dump_blocks:
-        print("# " +" ".join("%02x" % b for b in header))
+        print_block(header)
+
     (wno, subwno, grp1_cnt, grp2_cnt, grp3_cnt) = struct.unpack("<BBHHH", header);
     print("Screen %d.%d:" % (wno,subwno))
     print("  Variables:")
     for g in range(0, grp1_cnt):
         block = read_block(file)
         if dump_blocks:
-            print("# " +" ".join("%02x" % b for b in block))
-        (index,p1,start, min, max, step,p2) = struct.unpack("<BBhhhhH", block)
-        if p1 != 3 or p2 != 0:
+            print_block(block)
+        (index,p1,start, min, max, step,disp,flags) = struct.unpack("<BBhhhhBB", block)
+        if (p1 & 0xfc) != 0 or (flags & 0xfe) != 0:
             raise Exception("Unknown values in variable block")
-        print("    Variable %d: %d <= v <= %d, start %d, step %d" %(index, min,max, start, step))
+        print("    Variable %d: %d <= v <= %d, start %d, step %d, %s %s, disp %02x, flags: %02x"
+              % (index, min,max, start, step,
+                 "Encoder" if (p1 & 1) != 0 else "",
+                 "Host" if (p1 & 2) != 0 else "", disp,flags))
         
     print("  Visual elements:")
     for g in range(0, grp2_cnt):
         block = read_block(file)
         if dump_blocks:
-            print("# " +" ".join("%02x" % b for b in block))
+            print_block(block)
         (index, type) = struct.unpack("<HH", block[0:4])
-        if type == 1:
+        if type == 1 or type == 0:
             (f2,f3) = struct.unpack("<HH", block[4:8])
             if f2 != 0 or f3 != 0:
                 raise Exception("Unknown values in background image block")
@@ -105,7 +113,7 @@ while file.left > 0:
     for g in range(0, grp3_cnt):
         block = read_block(file)
         if dump_blocks:
-            print("# " +" ".join("%02x" % b for b in block))
+            print_block(block)
         (type,) = struct.unpack("<H", block[0:2])
         if type == 1:
             (x,y,w,h,func, index, value) = struct.unpack("<HHHHBBH", block[2:])

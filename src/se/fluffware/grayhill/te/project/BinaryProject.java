@@ -18,9 +18,13 @@ public class BinaryProject {
 		}
 	}
 
-	static final int WIDGET_TYPE_IMAGE = 1;
-	static final int WIDGET_TYPE_TEXT = 4;
+	static final int WIDGET_TYPE_IMAGE_JPEG = 1;
+	static final int WIDGET_TYPE_IMAGE_PNG = 0x80;
+	
+	static final int WIDGET_TYPE_TEXT = 0xc0;
 	static final int WIDGET_TYPE_RING = 5;
+	static final int WIDGET_TYPE_SECTOR = 0x20;
+	static final int WIDGET_TYPE_CURSOR = 0xe1;
 
 	static final int EVENT_TYPE_TAP = 1;
 	static final int EVENT_TYPE_SWIPE = 2;
@@ -31,7 +35,20 @@ public class BinaryProject {
 
 	static final int EVENT_ACTION_GOTO_SCREEN = 1;
 	static final int EVENT_ACTION_SET_VALUE = 2;
+	
+	static final int TEXT_PREFIX = 0x01;
+	static final int TEXT_SUFFIX = 0x04;
+	static final int TEXT_VALUE = 0x02;
 
+	static public Color readColor(LEDataInputStream in) throws IOException 
+	{
+		Color color = new Color();
+		color.blue = in.readUnsignedByte();
+		color.green = in.readUnsignedByte();
+		color.red = in.readUnsignedByte();
+		return color;
+	}
+	
 	static public Project readProject(LEDataInputStream in) throws IOException, Exception {
 		int blockLength = in.readUnsignedShort();
 		if (blockLength != 16)
@@ -92,19 +109,21 @@ public class BinaryProject {
 		int blockLength = in.readUnsignedShort();
 		if (blockLength != 14)
 			throw new Exception("Wrong length for variable block");
-		var.index = in.readUnsignedByte();
-		var.flags = in.readUnsignedByte();
-		if ((var.flags & ~Variable.FLAGS_MASK) != Variable.FLAGS_UNUSED_VALUE) {
+		var.id = in.readUnsignedByte();
+		var.control = in.readUnsignedByte();
+		if ((var.control & ~Variable.CONTROL_MASK) != 0) {
 
 			throw new Exception(
-					"Unexpected value at offset 3 (flags) in variable block, got 0x" + Integer.toHexString(var.flags));
+					"Unexpected value at offset 3 (flags) in variable block, got 0x" + Integer.toHexString(var.control));
 		}
 		var.startValue = in.readSignedShort();
 		var.minValue = in.readSignedShort();
 		var.maxValue = in.readSignedShort();
 		var.valueStep = in.readSignedShort();
-		if (in.readUnsignedShort() != 0)
-			throw new Exception("Unexpected value at offset 12 in variable block");
+		var.displayCode = in.readSignedByte();
+		var.flags = in.readSignedByte();
+		if ((var.flags & ~Variable.FLAGS_MASK) != 0)
+			throw new Exception("Unexpected flags in variable block");
 		return var;
 	}
 
@@ -157,8 +176,8 @@ public class BinaryProject {
 		SwipeEvent event = new SwipeEvent();
 		event.up = in.readUnsignedShort();
 		event.down = in.readUnsignedShort();
-		event.left = in.readUnsignedShort();
 		event.right = in.readUnsignedShort();
+		event.left = in.readUnsignedShort();
 		return event;
 	}
 
@@ -171,72 +190,135 @@ public class BinaryProject {
 
 	static public Widget readWidget(LEDataInputStream in) throws IOException, Exception {
 		long blockEnd = in.getPosition();
-		blockEnd += in.readUnsignedShort();
+		int blockLength = in.readUnsignedShort();
+		blockEnd += blockLength;
 		int index = in.readUnsignedShort();
 		int type = in.readUnsignedShort();
 		Widget w;
 		switch (type) {
-		case WIDGET_TYPE_IMAGE:
-			w = readImage(in);
+		case WIDGET_TYPE_IMAGE_PNG:
+		case WIDGET_TYPE_IMAGE_JPEG:	
+			w = readImage(in,type);
 			break;
 		case WIDGET_TYPE_TEXT:
 			w = readText(in);
 			break;
-		case WIDGET_TYPE_RING:
-			w = readRing(in);
+		//case WIDGET_TYPE_RING:
+		//	w = readRing(in);
+		//	break;
+		case WIDGET_TYPE_SECTOR:
+			w = readSector(in);
+			break;
+		case WIDGET_TYPE_CURSOR:
+			w = readCursor(in);
 			break;
 		default:
-			throw new Exception("Unknown widget type " + type);
+			w = readGenericWidget(in, type, blockEnd);
 		}
 		w.index = index;
 		if (blockEnd != in.getPosition())
 			throw new Exception("Parsed widget length doesn't match length in header");
 		return w;
 	}
-
-	static public Widget readImage(LEDataInputStream in) throws IOException, Exception {
+	
+	static public Widget readGenericWidget(LEDataInputStream in, int type, long end) throws IOException, Exception {
+		GenericWidget w = new GenericWidget();
+		w.type = type;
+		int count = (int) (end - in.getPosition());
+		w.data = in.readBytes(count);
+		return w;
+	}
+	
+	static public Widget readImage(LEDataInputStream in, int type) throws IOException, Exception {
 		Image w = new Image();
 		w.x = in.readUnsignedShort();
 		w.y = in.readUnsignedShort();
 		w.filename = in.readString();
+		if (type == WIDGET_TYPE_IMAGE_JPEG && !w.filename.endsWith(".jpg")) {
+			throw new Exception("Image filename does not end in .jpg");
+		}
+		if (type == WIDGET_TYPE_IMAGE_PNG && !w.filename.endsWith(".png")) {
+			throw new Exception("Image filename does not end in .png");
+		}
 		return w;
 	}
 
-	static public Widget readRing(LEDataInputStream in) throws IOException, Exception {
-		Ring w = new Ring();
+	
+
+	static public Widget readSector(LEDataInputStream in) throws IOException, Exception {
+		Sector w = new Sector();
+		w.startAngle = in.readUnsignedShort();
+		w.endAngle = in.readUnsignedShort();
+		w.radius1 = in.readUnsignedShort();
+		w.radius2 = in.readUnsignedShort();
 		w.x = in.readUnsignedShort();
 		w.y = in.readUnsignedShort();
-		w.endAngle = in.readUnsignedShort();
-		w.startAngle = in.readUnsignedShort();
-		w.radius = in.readUnsignedShort();
-		w.valueIndex = in.readUnsignedShort();
-		w.emptyRingImage = in.readString();
-		w.fullRingImage = in.readString();
-		w.cursorImage = in.readString();
+		if (in.readUnsignedByte() != 0xff) {
+			new Exception("Unexpected value at offset 18 in sector widget");
+		}
+		w.background = readColor(in);
+		if (in.readUnsignedByte() != 0xff) {
+			new Exception("Unexpected value at offset 22 in sector widget");
+		}
+		w.foreground = readColor(in);
+		if (in.readUnsignedByte() != 0x01) {
+			new Exception("Unexpected value at offset 26 in sector widget");
+		}
+		if (in.readUnsignedByte() != 0x01) {
+			new Exception("Unexpected value at offset 27 in sector widget");
+		}
+		
+		w.valueID = in.readUnsignedByte();
 		return w;
 	}
-
+	
+	static public Widget readCursor(LEDataInputStream in) throws IOException, Exception {
+		Cursor w = new Cursor();
+		w.inner_radius = in.readUnsignedShort();
+		if (in.readUnsignedShort() != 0x0000) {
+			new Exception("Unexpected value at offset 8 in cursor widget");
+		}
+		w.outer_radius = in.readUnsignedShort();
+		if (in.readUnsignedShort() != 0x0000) {
+			new Exception("Unexpected value at offset 12 in cursor widget");
+		}
+		if (in.readUnsignedByte() != 0xff) {
+			new Exception("Unexpected value at offset 14 in cursor widget");
+		}
+		w.inner_color = readColor(in);
+		if (in.readUnsignedByte() != 0xff) {
+			new Exception("Unexpected value at offset 18 in cursor widget");
+		}
+		w.outer_color = readColor(in);
+		if (in.readUnsignedByte() != 0x01) {
+			new Exception("Unexpected value at offset 22 in cursor widget");
+		}
+		return w;
+	}
+	
 	static public Widget readText(LEDataInputStream in) throws IOException, Exception {
 		Text w = new Text();
 		w.x = in.readUnsignedShort();
 		w.y = in.readUnsignedShort();
-		w.blue = in.readUnsignedByte();
-		w.green = in.readUnsignedByte();
-		w.red = in.readUnsignedByte();
-		in.readUnsignedByte(); // Pad
+		if (in.readUnsignedByte() == 0xff) {
+			new Exception("Unexpected value at offset 10 in text widget");
+		}
+		w.color = readColor(in);
+
 		w.fontIndex = in.readUnsignedByte();
 		w.fontSize = in.readUnsignedByte();
 		int flags = in.readUnsignedByte();
-		if ((flags & 0xfa) != 0x02)
+		if ((flags & 0xfa) != TEXT_VALUE)
 			throw new Exception("Unexpected text flags");
-		w.valueIndex = in.readUnsignedByte();
-		if ((flags & 0x01) != 0) {
+		w.valueID = in.readUnsignedByte();
+		long str_start = in.getPosition();
+		if ((flags & TEXT_PREFIX) != 0) {
 			w.prefix = in.readString();
 		}
-		if ((flags & 0x04) != 0) {
+		if ((flags & TEXT_SUFFIX) != 0) {
 			w.suffix = in.readString();
 		}
-
+		in.readPadEven(in.getPosition() - str_start);
 		return w;
 	}
 
@@ -248,15 +330,22 @@ public class BinaryProject {
 		return proj;
 	}
 
+	static public void writeColor(LEDataOutputStream out, Color color) throws IOException {
+		out.writeUnsignedByte(color.blue);
+		out.writeUnsignedByte(color.green);
+		out.writeUnsignedByte(color.red);
+	}
+	
 	static public void writeVariable(LEDataOutputStream out, Variable var) throws IOException {
 		out.writeUnsignedShort(14); // Block length
-		out.writeUnsignedByte(var.index);
-		out.writeUnsignedByte(var.flags);
+		out.writeUnsignedByte(var.id);
+		out.writeUnsignedByte(var.control);
 		out.writeUnsignedShort(var.startValue);
 		out.writeUnsignedShort(var.minValue);
 		out.writeUnsignedShort(var.maxValue);
 		out.writeUnsignedShort(var.valueStep);
-		out.writeUnsignedShort(0);
+		out.writeUnsignedByte(var.displayCode);
+		out.writeUnsignedByte(var.flags);
 	}
 
 	static public void writeImage(LEDataOutputStream out, Image image) throws IOException {
@@ -266,7 +355,11 @@ public class BinaryProject {
 		filename_out.close();
 		out.writeUnsignedShort(10 + filename_bytes.size()); // Block length
 		out.writeUnsignedShort(image.index);
-		out.writeUnsignedShort(WIDGET_TYPE_IMAGE);
+		if (image.filename.endsWith(".jpg")) {
+			out.writeUnsignedShort(WIDGET_TYPE_IMAGE_PNG);
+		} else {
+			out.writeUnsignedShort(WIDGET_TYPE_IMAGE_PNG);
+		}
 		out.writeUnsignedShort(image.x);
 		out.writeUnsignedShort(image.y);
 		out.write(filename_bytes.toByteArray());
@@ -287,43 +380,66 @@ public class BinaryProject {
 		out.writeUnsignedShort(WIDGET_TYPE_TEXT);
 		out.writeUnsignedShort(text.x);
 		out.writeUnsignedShort(text.y);
-		out.writeUnsignedByte(text.blue);
-		out.writeUnsignedByte(text.green);
-		out.writeUnsignedByte(text.red);
 		out.writeUnsignedByte(0xff); // Pad
+		writeColor(out, text.color);
 		out.writeUnsignedByte(text.fontIndex);
 		out.writeUnsignedByte(text.fontSize);
-		int flags = 0x02;
+		int flags = TEXT_VALUE;
 		if (text.prefix != null) {
-			flags |= 0x01;
+			flags |= TEXT_PREFIX;
 		}
 		if (text.suffix != null) {
-			flags |= 0x04;
+			flags |= TEXT_SUFFIX;
 		}
 		out.writeUnsignedByte(flags);
-		out.writeUnsignedByte(text.valueIndex);
+		out.writeUnsignedByte(text.valueID);
 		out.write(text_bytes.toByteArray());
+		out.writePadEven(text_bytes.size());
 	}
 
-	static public void writeRing(LEDataOutputStream out, Ring ring) throws IOException {
-		ByteArrayOutputStream filename_bytes = new ByteArrayOutputStream();
-		LEDataOutputStream filename_out = new LEDataOutputStream(filename_bytes);
-		filename_out.writeString(ring.emptyRingImage);
-		filename_out.writeString(ring.fullRingImage);
-		filename_out.writeString(ring.cursorImage);
-		filename_out.close();
+	
+	
+	static public void writeSector(LEDataOutputStream out, Sector sector) throws IOException {
+		out.writeUnsignedShort(29); // Block length
+		out.writeUnsignedShort(sector.index);
+		out.writeUnsignedShort(WIDGET_TYPE_SECTOR);
+		out.writeUnsignedShort(sector.startAngle);
+		out.writeUnsignedShort(sector.endAngle);
 
-		out.writeUnsignedShort(18 + filename_bytes.size()); // Block length
-		out.writeUnsignedShort(ring.index);
-		out.writeUnsignedShort(WIDGET_TYPE_RING);
-		out.writeUnsignedShort(ring.x);
-		out.writeUnsignedShort(ring.y);
-		out.writeUnsignedShort(ring.endAngle);
-		out.writeUnsignedShort(ring.startAngle);
-		out.writeUnsignedShort(ring.radius);
-		out.writeUnsignedShort(ring.valueIndex);
-		out.write(filename_bytes.toByteArray());
+		out.writeUnsignedShort(sector.radius1);
+		out.writeUnsignedShort(sector.radius2);
+		out.writeUnsignedShort(sector.x);
+		out.writeUnsignedShort(sector.y);
+		out.writeUnsignedByte(0xff);
+		writeColor(out, sector.background);
+		out.writeUnsignedByte(0xff);
+		writeColor(out, sector.foreground);
+		out.writeUnsignedByte(0x01);
+		out.writeUnsignedByte(0x01);
+		out.writeUnsignedByte(sector.valueID);
+		
 	}
+	static public void writeCursor(LEDataOutputStream out, Cursor cursor) throws IOException {
+		out.writeUnsignedShort(23); // Block length
+		out.writeUnsignedShort(cursor.index);
+		out.writeUnsignedShort(WIDGET_TYPE_CURSOR);
+		out.writeUnsignedShort(cursor.inner_radius);
+		out.writeUnsignedShort(0);
+		out.writeUnsignedShort(cursor.outer_radius);
+		out.writeUnsignedShort(0);
+		out.writeUnsignedByte(0xff);
+		writeColor(out, cursor.inner_color);
+		out.writeUnsignedByte(0xff);
+		writeColor(out, cursor.outer_color);
+		out.writeUnsignedByte(0x01);
+	}
+	
+	static public void writeGenericWidget(LEDataOutputStream out, GenericWidget widget) throws IOException {
+		out.writeUnsignedShort(6 + widget.data.length); // Block length
+		out.writeUnsignedShort(widget.index);
+		out.writeUnsignedShort(widget.type);
+		out.writeBytes(widget.data);
+	}		
 
 	static public void writeTap(LEDataOutputStream out, TapEvent event) throws IOException {
 		out.writeUnsignedShort(16); // Block length
@@ -347,8 +463,8 @@ public class BinaryProject {
 		out.writeUnsignedShort(EVENT_TYPE_SWIPE);
 		out.writeUnsignedShort(event.up);
 		out.writeUnsignedShort(event.down);
-		out.writeUnsignedShort(event.left);
 		out.writeUnsignedShort(event.right);
+		out.writeUnsignedShort(event.left);
 	}
 
 	static public void writeRotate(LEDataOutputStream out, RotateEvent event) throws IOException {
@@ -372,8 +488,14 @@ public class BinaryProject {
 				writeImage(out, (Image) w);
 			} else if (w instanceof Text) {
 				writeText(out, (Text) w);
-			} else if (w instanceof Ring) {
-				writeRing(out, (Ring) w);
+			//} else if (w instanceof Ring) {
+			//	writeRing(out, (Ring) w);
+			} else if (w instanceof Sector) {
+				writeSector(out, (Sector) w);						
+			} else if (w instanceof Cursor) {
+				writeCursor(out, (Cursor) w);						
+			} else if (w instanceof GenericWidget) {
+				writeGenericWidget(out, (GenericWidget)w);
 			}
 		}
 		for (Event e : screen.events) {

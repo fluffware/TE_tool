@@ -5,17 +5,19 @@
 <!ATTLIST project interface (CAN | USB) #REQUIRED>
 <!ATTLIST project default-screen CDATA "1">
 
-<!ELEMENT screen (variable*, (image| text | ring)+, (tap | swipe-up | swipe-down | swipe-left | swipe-right | rotate-cw | rotate-ccw)*) >
+<!ELEMENT screen (variable*, (generic-widget | image| text | sector | cursor)+, (tap | swipe-up | swipe-down | swipe-left | swipe-right | rotate-cw | rotate-ccw)*) >
 <!ATTLIST screen index CDATA #REQUIRED>
 
 
 <!ELEMENT variable EMPTY>
-<!ATTLIST variable index CDATA #REQUIRED>
+<!ATTLIST variable id CDATA #REQUIRED>
 <!ATTLIST variable min CDATA #REQUIRED>
 <!ATTLIST variable max CDATA #REQUIRED>
 <!ATTLIST variable start CDATA #REQUIRED>
 <!ATTLIST variable step CDATA "1">
-<!ATTLIST variable ring (adjust | ignore) "ignore">
+<!ATTLIST variable control CDATA #REQUIRED>
+<!ATTLIST variable exp CDATA "0">
+<!ATTLIST variable limits (limit | wrap) "limit">
 
 <!ELEMENT image EMPTY>
 <!ATTLIST image index CDATA #REQUIRED>
@@ -30,22 +32,28 @@
 <!ATTLIST text font-index CDATA "1">
 <!ATTLIST text font-size CDATA #IMPLIED>
 <!ATTLIST text color CDATA #IMPLIED>
-<!ATTLIST text value-index CDATA #REQUIRED>
+<!ATTLIST text value-id CDATA #REQUIRED>
 <!ATTLIST text suffix CDATA #IMPLIED>
 <!ATTLIST text prefix CDATA #IMPLIED>
 
-<!ELEMENT ring EMPTY>
-<!ATTLIST ring index CDATA #REQUIRED>
-<!ATTLIST ring x CDATA "0">
-<!ATTLIST ring y CDATA "0">
-<!ATTLIST ring radius CDATA #REQUIRED>
-<!ATTLIST ring start-angle CDATA #REQUIRED>
-<!ATTLIST ring end-angle CDATA #REQUIRED>
-<!ATTLIST ring value-index CDATA #REQUIRED>
-<!ATTLIST ring empty CDATA #REQUIRED>
-<!ATTLIST ring full CDATA #REQUIRED>
-<!ATTLIST ring cursor CDATA #IMPLIED>
+<!ELEMENT sector EMPTY>
+<!ATTLIST sector index CDATA #REQUIRED>
+<!ATTLIST sector x CDATA "0">
+<!ATTLIST sector y CDATA "0">
+<!ATTLIST sector radius CDATA #REQUIRED>
+<!ATTLIST sector cursor-radius CDATA #IMPLIED>
+<!ATTLIST sector start-angle CDATA #REQUIRED>
+<!ATTLIST sector end-angle CDATA #REQUIRED>
+<!ATTLIST sector value-id CDATA #REQUIRED>
+<!ATTLIST sector foreground CDATA #REQUIRED>
+<!ATTLIST sector background CDATA #REQUIRED>
 
+<!ELEMENT cursor EMPTY>
+<!ATTLIST cursor index CDATA #REQUIRED>
+<!ATTLIST sector outer-radius CDATA #REQUIRED>
+<!ATTLIST sector inner-radius CDATA #IMPLIED>
+<!ATTLIST sector outer-color CDATA #REQUIRED>
+<!ATTLIST sector inner-color CDATA #IMPLIED>
 
 <!ELEMENT tap (goto|set)>
 <!ATTLIST tap x CDATA #REQUIRED>
@@ -70,7 +78,7 @@
 <!ATTLIST goto screen CDATA #REQUIRED>
 
 <!ELEMENT set EMPTY>
-<!ATTLIST set value-index CDATA #REQUIRED>
+<!ATTLIST set value-id CDATA #REQUIRED>
 <!ATTLIST set value CDATA #REQUIRED>
 
 

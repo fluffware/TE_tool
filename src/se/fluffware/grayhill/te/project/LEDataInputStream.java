@@ -60,13 +60,24 @@ public class LEDataInputStream extends FilterInputStream {
 				throw new EOFException();
 			buf.write(v);
 		}
-		if ((pos & 1) != 0) {
+		return buf.toString("ISO8859-1");
+	}
+	
+	public void readPadEven(long len) throws IOException {		
+		if ((len & 1) != 0) {
 			// Pad to even byte
 			int v = read();
 			if (v < 0)
 				throw new EOFException();
 			pos += 1;
 		}
-		return buf.toString("ISO8859-1");
+	}
+	
+	public byte[] readBytes(int count) throws IOException 
+	{
+		byte [] b = new byte[count];
+		read(b,0,count);
+		pos += count;
+		return b;
 	}
 }

@@ -1,0 +1,163 @@
+updateProject.mdp
+Values are little-endian
+The file consists of a series of blocks.
+
+Block:
+Offset	Length
+0	2		N 
+2	N-2		Block data
+
+First block:
+Offset	Length
+0	2		Block length (16)
+2	2		Total length for file
+4	2		Number of screens
+6	2		Index of default screen
+8	2		0x0001
+10	2		0x0001
+12	2		1 - USB, 2 - CAN
+14	2		0x0000
+
+
+Screen header
+0	2		Block length
+2	2		Screen index
+4	2		Number of variables
+6	2		Number of widgets
+8	2		Number of event blocks
+
+Tap event:
+0	2		Block length
+2	2		0x0001
+4	2		x
+6	2		y
+8	2		width
+10	2		height
+12	1		1 - Target, 2 - Value
+13	1		Value index
+14	2		Target/Value
+
+Swipe events:
+0	2		Block length
+2	2		0x0002
+4	2		Widget swipe up target 0 for none
+6	2		Widget swipe down target
+8	2		Widget swipe left target
+10	2		Widget swipe right target
+
+Rotate events:
+0	2		Block length
+2	2		0x0003
+4	2		CW target
+6	2		CCW target
+
+
+Background image (JPEG):
+0	2		Block length
+2	2		Element index
+4	2		0x0001
+6	2		0x0000
+8	2		0x0000
+10	n		Zero terminated string
+
+Image (PNG):
+0	2		Block length
+2	2		Element index
+4	2		0x0080
+6	2		0x0000
+8	2		0x0000
+10	n		Zero terminated string
+
+Sector widget:
+0	2		Block length
+2	2		Element index
+4	2		0x0020
+6	2		Start angle, relative right X-axis CW
+8	2		End angle, relative right X-axis CW
+10	2		Cursor radius
+12	2		Sector radius (added to cursor radius)
+14	2		Center X
+16	2		Center Y
+18	1		0xff
+19	1		Blue background color
+20	1		Green background color
+21	1		Red background color
+22	1		0xff
+23	1		Blue foreground color
+24	1		Green foreground color
+25	1		Red foreground color
+26	1		0x01
+27	1		0x01
+28	1		Value ID
+
+Cursor widget:
+0	2		Block length
+2	2		Element index
+4	2		0x00e1
+6	2		Cursor radius inner
+8	2		0x0000
+10	2		Cursor radius outer
+12	2		0x0000
+14	1		0xff
+15	1		Blue color inner
+16	1		Green color inner
+17	1		Red color inner
+18	1		0xff
+19	1		Blue color outer
+20	1		Green color outer
+21	1		Red color outer
+22	1		0x01
+
+Text:
+0	2		Block length
+2	2		Element index
+4	2		0x00c0
+6	2		x
+8	2		y
+10	1		0xff
+11	1		Blue
+12	1		Green
+13	1		Red
+14	1		Font index
+15	1		Font size
+16	1		Flags 0x01 - Prefix follows, 0x04 - Suffix follows, 0x02 - Always set
+17	1		Value index
+18	p		Prefix. NUL-terminated
+18+p	s		Suffix. NUL-terminated
+
+Highlighted icons:
+0	2		Block length
+2	2		Element index
+4	2		0x00a0
+6	1		Value ID
+7	2		Number of positions
+9	2		Number of image pairs
+
+11	2		x
+13	2		y
+15	2		Position index zero based
+...
+n	2		Selected subimage x
+n+2	2		Selected subimage y
+n+4	2		Selected subimage width
+n+4	2		Selected subimage height
+n+6	2		Unselected subimage x
+n+8	2		Unselected subimage y
+n+10	2		Unselected subimage width
+n+12	2		Unselected subimage height
+n+14	2		Image index zero based
+...
+m	2		Zero terminated filename
+
+Variable:
+0	2		Block length
+2	1		Value ID (1<<(n-1)) 1 <= n <= 8 
+3	1		Flags: 0x01 - step when rotating, 0x02 - host controlled
+4	2		Start value
+6	2		Min value
+8	2		Max value
+10	2		Step
+12	1		Display code
+13	1		Flags: 0x01 wrap the value between min and max when controlled by the encoder
+
+Strings are NUL-terminated and encoded as IS8859-1. Padded to even number of bytes

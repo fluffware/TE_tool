@@ -93,12 +93,13 @@ Text:
 
 Variable:
 0	2		Block length
-2	1		Index
-3	1		Flags: 0x01 - step when rotating, 0x02 - always set
+2	1		Value ID (1<<(n-1)) 1 <= n <= 8 
+3	1		Flags: 0x01 - step when rotating, 0x02 - host controlled?
 4	2		Start value
 6	2		Min value
 8	2		Max value
 10	2		Step
-12	2		0x0000
+12	1		0 - stop at limits, 1 wrap
+13	1		Display code
 
 Strings are NUL-terminated and encoded as IS8859-1. Padded to even number of bytes

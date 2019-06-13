@@ -27,7 +27,7 @@ public class ProjectUtils {
 		try {
 			for (Variable v : screen.vars) {
 				try {
-					if (!var_indices.add(v.index)) {
+					if (!var_indices.add(v.id)) {
 						throw new CheckException("There are more than one variable with the same index ");
 					}
 					if (v.minValue > v.maxValue) {
@@ -39,7 +39,7 @@ public class ProjectUtils {
 
 					}
 				} catch (CheckException e) {
-					throw new CheckException("Variable " + v.index + ": " + e.getMessage());
+					throw new CheckException("Variable " + v.id + ": " + e.getMessage());
 				}
 			}
 
@@ -50,8 +50,8 @@ public class ProjectUtils {
 					}
 					if (w instanceof Text) {
 						Text text = (Text) w;
-						if (!var_indices.contains(text.valueIndex)) {
-							throw new CheckException("Unknown variable index " + text.valueIndex);
+						if (!var_indices.contains(text.valueID)) {
+							throw new CheckException("Unknown variable index " + text.valueID);
 						}
 					} else if (w instanceof Ring) {
 						Ring ring = (Ring) w;
@@ -151,8 +151,14 @@ public class ProjectUtils {
 			
 					if (w instanceof Image) {
 						Image image = (Image)w;
-						
-						image.filename = remap(map, image.filename,"image_"+s.index+"_"+w.index+".png");
+						int dot = image.filename.lastIndexOf('.');
+						String ext;
+						if (dot > 0) {
+							ext = image.filename.substring(dot + 1);
+						} else {
+							ext = "png";
+						}
+						image.filename = remap(map, image.filename,"image_"+s.index+"_"+w.index+"."+ext);
 						
 					} else if (w instanceof Ring) {
 						Ring ring = (Ring) w;

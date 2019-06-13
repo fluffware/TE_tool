@@ -30,12 +30,21 @@ public class LEDataOutputStream extends FilterOutputStream {
 		write(v);
 		write(v >> 8);
 	}
+	
 	public void writeString(String str) throws IOException {
 		byte [] b = str.getBytes("ISO8859-1");
 		write(b);
 		write(0);
-		if ((b.length & 1) == 0) {
+	}
+	
+	public void writePadEven(long len) throws IOException {
+		if ((len & 1) != 0) {
 			write(0xff);
 		}
+	}
+	
+	
+	public void writeBytes(byte [] b) throws IOException {
+		write(b);
 	}
 }

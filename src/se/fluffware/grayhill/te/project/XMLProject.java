@@ -95,6 +95,14 @@ public class XMLProject {
 					writeText((Text) w);
 				} else if (w instanceof Ring) {
 					writeRing((Ring) w);
+				} else if (w instanceof Sector) {
+					writeSector((Sector) w);
+				} else if (w instanceof Cursor) {
+					writeCursor((Cursor) w);
+				} else if (w instanceof GenericWidget) {
+					writeGenericWidget((GenericWidget)w);
+				} else {
+					throw new XMLStreamException("Can't serialize unknown widget");
 				}
 			}
 			for (Event e : screen.events) {
@@ -105,6 +113,8 @@ public class XMLProject {
 					writeSwipeEvent((SwipeEvent) e);
 				} else if (e instanceof RotateEvent) {
 					writeRotateEvent((RotateEvent) e);
+				} else {
+					throw new XMLStreamException("Can't serialize unknown event");
 				}
 			}
 			writeEndElement();
@@ -112,13 +122,15 @@ public class XMLProject {
 
 		void writeVariable(Variable variable) throws XMLStreamException {
 			writeEmptyElement("variable");
-			writeAttribute("index", Integer.toString(variable.index));
+			writeAttribute("id", Integer.toString(variable.id));
 			writeAttribute("min", Integer.toString(variable.minValue));
 			writeAttribute("max", Integer.toString(variable.maxValue));
 			writeAttribute("start", Integer.toString(variable.startValue));
 			writeAttribute("step", Integer.toString(variable.valueStep));
-			writeAttribute("ring", ((variable.flags & Variable.FLAGS_RING_ADJUST) != 0) ? "adjust" : "ignore");
-
+			writeAttribute("control", (((variable.control & Variable.CONTROL_ENCODER) != 0) ? "encoder" : "")
+					+" "+ (((variable.control & Variable.CONTROL_HOST) != 0) ? "host" : ""));
+			writeAttribute("exp", Integer.toString(((int)(byte)(variable.displayCode & 0xf0)) >> 4));
+			writeAttribute("limits", (((variable.flags & Variable.FLAGS_WRAP) != 0) ? "wrap" : "limit"));
 		}
 
 		void widgetAttrs(Widget w) throws XMLStreamException {
@@ -133,17 +145,15 @@ public class XMLProject {
 			writeAttribute("filename", w.filename);
 		}
 
-		static public String rgbhex(int r, int g, int b) {
-			return String.format("#%02X%02X%02X", r, g, b);
-		}
+		
 
 		void writeText(Text w) throws XMLStreamException {
 			writeEmptyElement("text");
 			widgetAttrs(w);
 			writeAttribute("font-index", Integer.toString(w.fontIndex));
 			writeAttribute("font-size", Integer.toString(w.fontSize));
-			writeAttribute("color", rgbhex(w.red, w.green, w.blue));
-			writeAttribute("value-index", Integer.toString(w.valueIndex));
+			writeAttribute("color", w.color.toString());
+			writeAttribute("value-id", Integer.toString(w.valueID));
 			if (w.prefix != null) {
 				writeAttribute("prefix", w.prefix);
 			}
@@ -159,11 +169,51 @@ public class XMLProject {
 			writeAttribute("radius", Integer.toString(w.radius));
 			writeAttribute("start-angle", Integer.toString(w.startAngle));
 			writeAttribute("end-angle", Integer.toString(w.endAngle));
-			writeAttribute("value-index", Integer.toString(w.valueIndex));
+			writeAttribute("value-id", Integer.toString(w.valueIndex));
 			writeAttribute("empty", w.emptyRingImage);
 			writeAttribute("full", w.fullRingImage);
 			writeAttribute("cursor", w.cursorImage);
 		}
+		void writeSector(Sector w) throws XMLStreamException {
+			writeEmptyElement("sector");
+			widgetAttrs(w);
+			writeAttribute("radius", Integer.toString(w.radius1 + w.radius2));
+			writeAttribute("cursor-radius", Integer.toString(w.radius1));
+			writeAttribute("start-angle", Integer.toString(w.startAngle));
+			writeAttribute("end-angle", Integer.toString(w.endAngle));
+			writeAttribute("background", w.background.toString());
+			writeAttribute("foreground", w.foreground.toString());
+			writeAttribute("value-id", Integer.toString(w.valueID));
+		}
+		
+		void writeCursor(Cursor w) throws XMLStreamException {
+			writeEmptyElement("cursor");
+			writeAttribute("index", Integer.toString(w.index));
+			writeAttribute("outer-radius", Integer.toString(w.outer_radius));
+			writeAttribute("inner-radius", Integer.toString(w.inner_radius));
+			writeAttribute("outer-color", w.outer_color.toString());
+			writeAttribute("inner-color", w.inner_color.toString());
+			
+		}
+		
+		void writeGenericWidget(GenericWidget w) throws XMLStreamException {
+			
+			writeStartElement("generic-widget");
+			writeAttribute("index", Integer.toString(w.index));
+			writeAttribute("type", Integer.toString(w.type));
+			xml.writeCharacters("\n");
+			writeIndent();
+			StringBuffer buffer = new StringBuffer();
+			for (int i = 0; i < w.data.length; i++) {
+				byte c = w.data[i];
+				buffer.append(String.format("%02x ", c));
+			}
+			xml.writeCharacters(buffer.toString());
+			
+			writeEndElement();
+			
+		}
+			
 
 		void writeGoto(int screen) throws XMLStreamException {
 			writeEmptyElement("goto");
@@ -172,7 +222,7 @@ public class XMLProject {
 
 		void writeSet(int value_index, int value) throws XMLStreamException {
 			writeEmptyElement("set");
-			writeAttribute("value-index", Integer.toString(value_index));
+			writeAttribute("value-id", Integer.toString(value_index));
 			writeAttribute("value", Integer.toString(value));
 
 		}
@@ -316,6 +366,10 @@ public class XMLProject {
 
 			}
 
+			boolean has(String name) {
+				return attrs.containsKey(name);
+
+			}
 			int getInteger(String name) throws XMLStreamException {
 				try {
 					return Integer.parseInt(get(name));
@@ -351,19 +405,13 @@ public class XMLProject {
 				}
 			}
 
-			int[] getColor(String name) throws XMLStreamException {
+			Color getColor(String name) throws XMLStreamException {
 				String s = get(name);
-				if (!s.substring(0, 1).equals("#")) {
-					throw new XMLStreamException("Color hex triple must start with # at line " + line);
-				}
 				try {
-					int[] rgb = new int[3];
-					rgb[0] = Integer.parseUnsignedInt(s.substring(1, 3), 16);
-					rgb[1] = Integer.parseUnsignedInt(s.substring(3, 5), 16);
-					rgb[2] = Integer.parseUnsignedInt(s.substring(5, 7), 16);
-					return rgb;
-				} catch (NumberFormatException e) {
-					throw new XMLStreamException("Illegal color value for attribute " + name + " at line " + line);
+					return Color.parseColor(s);
+				} catch (Color.ParseException e) {
+					throw new XMLStreamException("Failed to parse color for attribute " 
+							+ name + " at line " + line+": "+e.getMessage());
 				}
 
 			}
@@ -374,16 +422,30 @@ public class XMLProject {
 
 			AttributeLookup attrs = new AttributeLookup(xml);
 
-			var.index = attrs.getInteger("index");
+			var.id = attrs.getInteger("id");
 			var.minValue = attrs.getInteger("min");
 			var.maxValue = attrs.getInteger("max");
 
 			var.startValue = attrs.getInteger("start");
 			var.valueStep = attrs.getInteger("step", 1);
-			var.flags = attrs.getInteger("flags", Variable.FLAGS_UNUSED_VALUE);
-			if ("adjust".equals(attrs.get("ring"))) {
-				var.flags |= Variable.FLAGS_RING_ADJUST;
+			var.control = 0;
+			if (attrs.get("control").contains("encoder")) {
+				var.control |= Variable.CONTROL_ENCODER;
 			}
+			if (attrs.get("control").contains("host")) {
+				var.control |= Variable.CONTROL_HOST;
+			}
+			var.displayCode = (attrs.getInteger("exp", 0) & 0x0f)<<4;
+			String limits = attrs.get("limits", "limit");
+			var.flags = 0;
+			if (limits.equals("wrap")) {
+				var.flags |= Variable.FLAGS_WRAP;
+			} else if (!limits.equals("limit")) {
+				int line = xml.getLocation().getLineNumber();
+			
+				throw new XMLStreamException("Value of attribute limits must be either 'limit' or 'wrap' at line " + line);
+			}
+			
 			nextEndElement("variable");
 			return var;
 		}
@@ -412,7 +474,7 @@ public class XMLProject {
 
 			ring.endAngle = attrs.getInteger("end-angle");
 
-			ring.valueIndex = attrs.getInteger("value-index");
+			ring.valueIndex = attrs.getInteger("value-id");
 
 			ring.emptyRingImage = attrs.get("empty");
 
@@ -423,7 +485,76 @@ public class XMLProject {
 			nextEndElement("ring");
 			return ring;
 		}
+		
+		Sector readSector() throws XMLStreamException {
+			Sector sector = new Sector();
+			AttributeLookup attrs = new AttributeLookup(xml);
+			sector.index = attrs.getInteger("index");
+			sector.x = attrs.getInteger("x", 0);
+			sector.y = attrs.getInteger("y", 0);
 
+
+			sector.radius2 = attrs.getInteger("radius");
+			if (attrs.has("cursor-radius")) {
+				sector.radius1 = attrs.getInteger("cursor-radius");
+				sector.radius2 -= sector.radius1;
+			} else {
+				sector.radius1 = sector.radius2;
+			}
+
+			sector.startAngle = attrs.getInteger("start-angle");
+
+			sector.endAngle = attrs.getInteger("end-angle");
+
+			sector.valueID = attrs.getInteger("value-id");
+
+			sector.background = attrs.getColor("background");
+			sector.foreground = attrs.getColor("foreground");
+			nextEndElement("sector");
+			return sector;
+		}
+		
+		Cursor readCursor() throws XMLStreamException {
+			Cursor cursor = new Cursor();
+			AttributeLookup attrs = new AttributeLookup(xml);
+			cursor.index = attrs.getInteger("index");
+
+			cursor.outer_radius = attrs.getInteger("outer-radius");
+			cursor.inner_radius = attrs.getInteger("inner-radius", cursor.outer_radius);
+			
+			
+
+			cursor.outer_color = attrs.getColor("outer-color");
+			if (attrs.has("inner-color")) {
+			cursor.inner_color = attrs.getColor("inner-color");
+			} else {
+				cursor.inner_color = cursor.outer_color;
+			}
+			nextEndElement("cursor");
+			return cursor;
+		}
+		
+		GenericWidget readGenericWidget() throws XMLStreamException {
+			GenericWidget widget = new GenericWidget();
+			AttributeLookup attrs = new AttributeLookup(xml);
+			widget.index = attrs.getInteger("index");
+			widget.type = attrs.getInteger("type");
+			String text = xml.getElementText();
+			String[] byte_str = text.trim().split("[ \\t\\n\\r]+");
+			widget.data = new byte[byte_str.length];
+			for (int i = 0; i < byte_str.length; i++) {
+				try {
+					widget.data[i] = (byte)Integer.parseInt(byte_str[i],16);
+				} catch(NumberFormatException ex) {
+					throw new XMLStreamException(
+							"Illegal hex value ("+byte_str[i]+") at line " + xml.getLocation().getLineNumber());
+			
+				}
+			}
+			
+			return widget;
+		}
+		
 		Text readText() throws XMLStreamException {
 			Text text = new Text();
 			AttributeLookup attrs = new AttributeLookup(xml);
@@ -432,12 +563,9 @@ public class XMLProject {
 			text.y = attrs.getInteger("y");
 			text.fontIndex = attrs.getInteger("font-index");
 			text.fontSize = attrs.getInteger("font-size");
-			int[] rgb = attrs.getColor("color");
-			text.red = rgb[0];
-			text.green = rgb[1];
-			text.blue = rgb[2];
-			System.err.println("Color: " + Writer.rgbhex(text.red, text.green, text.blue));
-			text.valueIndex = attrs.getInteger("value-index");
+			text.color = attrs.getColor("color");
+			System.err.println("Color: " + text.color);
+			text.valueID = attrs.getInteger("value-id");
 			text.prefix = attrs.get("prefix", null);
 			text.suffix = attrs.get("suffix", null);
 			nextEndElement("text");
@@ -454,7 +582,7 @@ public class XMLProject {
 		int[] readSet() throws XMLStreamException {
 			AttributeLookup attrs = new AttributeLookup(xml);
 			int[] set = new int[2];
-			set[0] = attrs.getScreenIndex("value-index");
+			set[0] = attrs.getScreenIndex("value-id");
 			set[1] = attrs.getScreenIndex("value");
 			nextEndElement("set");
 			return set;
@@ -557,9 +685,15 @@ public class XMLProject {
 				} else if (xml.getLocalName().equals("text")) {
 					Text text = readText();
 					screen.widgets.add(text);
-				} else if (xml.getLocalName().equals("ring")) {
-					Ring ring = readRing();
-					screen.widgets.add(ring);
+				} else if (xml.getLocalName().equals("cursor")) {
+					Cursor cursor = readCursor();
+					screen.widgets.add(cursor);
+				} else if (xml.getLocalName().equals("sector")) {
+					Sector sector = readSector();
+					screen.widgets.add(sector);
+				} else if (xml.getLocalName().equals("generic-widget")) {
+					GenericWidget widget = readGenericWidget();
+					screen.widgets.add(widget);
 				} else if (xml.getLocalName().startsWith("swipe-")) {
 					swipe = readSwipe(swipe);
 				} else if (xml.getLocalName().startsWith("rotate-")) {
