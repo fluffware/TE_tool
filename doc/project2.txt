@@ -90,6 +90,25 @@ Sector widget:
 27	1		0x01
 28	1		Value ID
 
+Bar widget:
+0	2		Block length
+2	2		Element index
+4	2		0x40
+6	2		Left X
+8	2		Bottom Y
+10	2		Right X
+12	2		Top Y
+14	1		0xff
+15	1		Blue background color
+16	1		Green background color
+17	1		Red background color
+18	1		0xff
+19	1		Blue bar color
+20	1		Green bar color
+21	1		Red bar color
+22	1		0X01
+23	1		Value ID
+
 Cursor widget:
 0	2		Block length
 2	2		Element index

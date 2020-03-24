@@ -113,6 +113,8 @@ public class XMLProject {
 					writeSwipeEvent((SwipeEvent) e);
 				} else if (e instanceof RotateEvent) {
 					writeRotateEvent((RotateEvent) e);
+				} else if (e instanceof GenericEvent) {
+					writeGenericEvent((GenericEvent) e);
 				} else {
 					throw new XMLStreamException("Can't serialize unknown event");
 				}
@@ -244,7 +246,24 @@ public class XMLProject {
 			}
 			writeEndElement();
 		}
-
+		
+		void writeGenericEvent(GenericEvent ev) throws XMLStreamException {
+			
+			writeStartElement("generic-event");
+			writeAttribute("type", Integer.toString(ev.type));
+			xml.writeCharacters("\n");
+			writeIndent();
+			StringBuffer buffer = new StringBuffer();
+			for (int i = 0; i < ev.data.length; i++) {
+				byte c = ev.data[i];
+				buffer.append(String.format("%02x ", c));
+			}
+			xml.writeCharacters(buffer.toString());
+			
+			writeEndElement();
+			
+		}
+		
 		void writeEventType(String type, int screen) throws XMLStreamException {
 			if (screen > 0) {
 				writeStartElement(type);
@@ -588,6 +607,25 @@ public class XMLProject {
 			return set;
 		}
 
+		GenericEvent readGenericEvent() throws XMLStreamException {
+			GenericEvent ev = new GenericEvent();
+			AttributeLookup attrs = new AttributeLookup(xml);
+			ev.type = attrs.getInteger("type");
+			String text = xml.getElementText();
+			String[] byte_str = text.trim().split("[ \\t\\n\\r]+");
+			ev.data = new byte[byte_str.length];
+			for (int i = 0; i < byte_str.length; i++) {
+				try {
+					ev.data[i] = (byte)Integer.parseInt(byte_str[i],16);
+				} catch(NumberFormatException ex) {
+					throw new XMLStreamException(
+							"Illegal hex value ("+byte_str[i]+") at line " + xml.getLocation().getLineNumber());
+			
+				}
+			}
+			return ev;
+		}
+		
 		SwipeEvent readSwipe(SwipeEvent swipe) throws XMLStreamException {
 			String startTag = xml.getLocalName();
 			nextStartElement("goto");
@@ -701,6 +739,9 @@ public class XMLProject {
 				} else if (xml.getLocalName().equals("tap")) {
 					TapEvent tap = readTap();
 					screen.events.add(tap);
+				} else if (xml.getLocalName().equals("generic-event")) {
+					GenericEvent ev = readGenericEvent();
+					screen.events.add(ev);
 				} else {
 					throw new XMLStreamException(
 							"Expected variable, widget or event element, got " + xml.getLocalName());

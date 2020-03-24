@@ -143,13 +143,21 @@ public class BinaryProject {
 			event = readRotateEvent(in);
 			break;
 		default:
-			throw new Exception("Unknown event type " + type);
+			event = readGenericEvent(in, type, blockEnd);
 		}
 		if (blockEnd != in.getPosition())
 			throw new Exception("Parsed event length doesn't match length in header");
 		return event;
 	}
-
+	
+	static public Event readGenericEvent(LEDataInputStream in, int type, long end) throws IOException, Exception {
+		GenericEvent ev = new GenericEvent();
+		ev.type = type;
+		int count = (int) (end - in.getPosition());
+		ev.data = in.readBytes(count);
+		return ev;
+	}
+	
 	static Event readTapEvent(LEDataInputStream in) throws IOException, Exception {
 		TapEvent event = new TapEvent();
 		event.x = in.readUnsignedShort();
@@ -473,7 +481,13 @@ public class BinaryProject {
 		out.writeUnsignedShort(event.CW);
 		out.writeUnsignedShort(event.CCW);
 	}
-
+	
+	static public void writeGenericEvent(LEDataOutputStream out, GenericEvent event) throws IOException {
+		out.writeUnsignedShort(4 + event.data.length); // Block length
+		out.writeUnsignedShort(event.type);
+		out.writeBytes(event.data);
+	}		
+	
 	static public void writeScreen(LEDataOutputStream out, Screen screen) throws IOException {
 		out.writeUnsignedShort(10); // Block length
 		out.writeUnsignedShort(screen.index);
@@ -505,6 +519,8 @@ public class BinaryProject {
 				writeSwipe(out, (SwipeEvent) e);
 			} else if (e instanceof RotateEvent) {
 				writeRotate(out, (RotateEvent) e);
+			} else {
+				writeGenericEvent(out, (GenericEvent)e);
 			}
 		}
 	}
