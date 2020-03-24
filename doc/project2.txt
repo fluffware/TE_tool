@@ -60,6 +60,14 @@ Background image (JPEG):
 8	2		0x0000
 10	n		Zero terminated string
 
+Background image (JPEG):
+0	2		Block length
+2	2		Element index
+4	2		0x0080
+6	2		0x0000
+8	2		0x0000
+10	n		Zero terminated string
+
 Image (PNG):
 0	2		Block length
 2	2		Element index

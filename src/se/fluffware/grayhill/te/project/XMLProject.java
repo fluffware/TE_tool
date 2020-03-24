@@ -142,7 +142,11 @@ public class XMLProject {
 		}
 
 		void writeImage(Image w) throws XMLStreamException {
-			writeEmptyElement("image");
+			if (w instanceof BackgroundImage) {
+				writeEmptyElement("background-image");
+			} else {
+				writeEmptyElement("image");
+			}
 			widgetAttrs(w);
 			writeAttribute("filename", w.filename);
 		}
@@ -469,14 +473,14 @@ public class XMLProject {
 			return var;
 		}
 
-		Image readImage() throws XMLStreamException {
-			Image image = new Image();
+		Image readImage(Image image) throws XMLStreamException {
+			String startTag = xml.getLocalName();
 			AttributeLookup attrs = new AttributeLookup(xml);
 			image.index = attrs.getInteger("index");
 			image.x = attrs.getInteger("x");
 			image.y = attrs.getInteger("y");
 			image.filename = attrs.get("filename");
-			nextEndElement("image");
+			nextEndElement(startTag);
 			return image;
 		}
 
@@ -717,10 +721,13 @@ public class XMLProject {
 				if (xml.getLocalName().equals("variable")) {
 					Variable var = readVariable();
 					screen.vars.add(var);
-				} else if (xml.getLocalName().equals("image")) {
-					Image image = readImage();
+				} else if (xml.getLocalName().equals("background-image")) {
+					Image image = readImage(new BackgroundImage());
 					screen.widgets.add(image);
-				} else if (xml.getLocalName().equals("text")) {
+				} else if (xml.getLocalName().equals("image")) {
+	 				Image image = readImage(new Image());
+	 				screen.widgets.add(image);
+	 			} else if (xml.getLocalName().equals("text")) {
 					Text text = readText();
 					screen.widgets.add(text);
 				} else if (xml.getLocalName().equals("cursor")) {

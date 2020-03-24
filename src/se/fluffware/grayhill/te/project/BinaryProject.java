@@ -19,6 +19,7 @@ public class BinaryProject {
 	}
 
 	static final int WIDGET_TYPE_IMAGE_JPEG = 1;
+	static final int WIDGET_TYPE_IMAGE_BG_JPEG = 0;
 	static final int WIDGET_TYPE_IMAGE_PNG = 0x80;
 	
 	static final int WIDGET_TYPE_TEXT = 0xc0;
@@ -204,6 +205,7 @@ public class BinaryProject {
 		int type = in.readUnsignedShort();
 		Widget w;
 		switch (type) {
+		case WIDGET_TYPE_IMAGE_BG_JPEG:
 		case WIDGET_TYPE_IMAGE_PNG:
 		case WIDGET_TYPE_IMAGE_JPEG:	
 			w = readImage(in,type);
@@ -238,7 +240,12 @@ public class BinaryProject {
 	}
 	
 	static public Widget readImage(LEDataInputStream in, int type) throws IOException, Exception {
-		Image w = new Image();
+		Image w;
+		if (type == WIDGET_TYPE_IMAGE_BG_JPEG) {
+			w = new BackgroundImage();
+		} else {
+			w = new Image();
+		}
 		w.x = in.readUnsignedShort();
 		w.y = in.readUnsignedShort();
 		w.filename = in.readString();
@@ -363,10 +370,14 @@ public class BinaryProject {
 		filename_out.close();
 		out.writeUnsignedShort(10 + filename_bytes.size()); // Block length
 		out.writeUnsignedShort(image.index);
-		if (image.filename.endsWith(".jpg")) {
-			out.writeUnsignedShort(WIDGET_TYPE_IMAGE_PNG);
+		if (image instanceof BackgroundImage) {
+			out.writeUnsignedShort(WIDGET_TYPE_IMAGE_BG_JPEG);
 		} else {
-			out.writeUnsignedShort(WIDGET_TYPE_IMAGE_PNG);
+			if (image.filename.endsWith(".jpg")) {
+				out.writeUnsignedShort(WIDGET_TYPE_IMAGE_JPEG);
+			} else {
+				out.writeUnsignedShort(WIDGET_TYPE_IMAGE_PNG);
+			}
 		}
 		out.writeUnsignedShort(image.x);
 		out.writeUnsignedShort(image.y);
