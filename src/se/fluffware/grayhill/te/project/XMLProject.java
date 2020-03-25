@@ -87,7 +87,7 @@ public class XMLProject {
 			for (Variable v : screen.vars) {
 				writeVariable(v);
 			}
-			for (Widget w : screen.widgets) {
+			for (se.fluffware.grayhill.te.project.Widget w : screen.widgets) {
 
 				if (w instanceof Image) {
 					writeImage((Image) w);
@@ -99,6 +99,8 @@ public class XMLProject {
 					writeSector((Sector) w);
 				} else if (w instanceof Cursor) {
 					writeCursor((Cursor) w);
+				} else if (w instanceof DynamicImage) {
+					writeDynamicImage((DynamicImage) w);
 				} else if (w instanceof GenericWidget) {
 					writeGenericWidget((GenericWidget)w);
 				} else {
@@ -135,7 +137,7 @@ public class XMLProject {
 			writeAttribute("limits", (((variable.flags & Variable.FLAGS_WRAP) != 0) ? "wrap" : "limit"));
 		}
 
-		void widgetAttrs(Widget w) throws XMLStreamException {
+		void widgetAttrs(WidgetXY w) throws XMLStreamException {
 			writeAttribute("index", Integer.toString(w.index));
 			writeAttribute("x", Integer.toString(w.x));
 			writeAttribute("y", Integer.toString(w.y));
@@ -151,7 +153,28 @@ public class XMLProject {
 			writeAttribute("filename", w.filename);
 		}
 
+		void writeSubImage(DynamicImage.SubImage im) throws XMLStreamException
+		{
+			writeEmptyElement("subimage");
+			writeAttribute("x", Integer.toString(im.x));
+			writeAttribute("y", Integer.toString(im.y));
+			writeAttribute("width", Integer.toString(im.width));
+			writeAttribute("height", Integer.toString(im.height));
+		}
 		
+		void writeDynamicImage(DynamicImage dyn) throws XMLStreamException {
+			writeStartElement("dynamic-image");
+			widgetAttrs(dyn);
+			writeAttribute("value-id", Integer.toString(dyn.valueID));
+			writeAttribute("filename", dyn.filename);
+			for (DynamicImage.State pair: dyn.states) {
+				writeStartElement("state");
+				writeSubImage(pair.selected);
+				writeSubImage(pair.unselected);
+				writeEndElement();
+			}
+			writeEndElement();
+		}
 
 		void writeText(Text w) throws XMLStreamException {
 			writeEmptyElement("text");
@@ -480,10 +503,82 @@ public class XMLProject {
 			image.x = attrs.getInteger("x");
 			image.y = attrs.getInteger("y");
 			image.filename = attrs.get("filename");
+			
 			nextEndElement(startTag);
 			return image;
 		}
 
+		DynamicImage readDynamicImage() throws XMLStreamException {
+			DynamicImage image = new DynamicImage();
+			String startTag = xml.getLocalName();
+			AttributeLookup attrs = new AttributeLookup(xml);
+			image.index = attrs.getInteger("index");
+			image.x = attrs.getInteger("x");
+			image.y = attrs.getInteger("y");
+			image.valueID = attrs.getInteger("value-id");
+			image.filename = attrs.get("filename");
+			int s = 0;
+			while (true) {
+				if (xml.nextTag() == XMLStreamReader.END_ELEMENT)
+					break;
+				if (!xml.getLocalName().equals("state")) {
+					int line = xml.getLocation().getLineNumber();
+					throw new XMLStreamException("Expected tag state at line " + line);	
+				}
+				DynamicImage.State state = new DynamicImage.State();
+				int p = 0;
+				while (true) {
+					if (xml.nextTag() == XMLStreamReader.END_ELEMENT)
+						break;
+					if (!xml.getLocalName().equals("subimage")) {
+						int line = xml.getLocation().getLineNumber();
+						throw new XMLStreamException("Expected tag subimage at line " + line);	
+					}
+				
+					DynamicImage.SubImage subimage = new DynamicImage.SubImage();
+					AttributeLookup subattrs = new AttributeLookup(xml);
+					subimage.x = subattrs.getInteger("x");
+					subimage.y = subattrs.getInteger("y");
+					subimage.width = subattrs.getInteger("width");
+					subimage.height = subattrs.getInteger("height");
+					
+					nextEndElement("subimage");
+					switch(p) {
+					case 0:
+						state.selected = subimage;
+						break;
+					case 1:
+						state.unselected = subimage;
+						break;
+					default:
+						int line = xml.getLocation().getLineNumber();
+						throw new XMLStreamException("Too many subimages in state at line " + line);	
+					}
+					p++;
+				}
+				switch(p) {
+				case 0:
+					int line = xml.getLocation().getLineNumber();
+					throw new XMLStreamException("Too few subimages in state at line " + line);
+				case 1:
+					state.unselected = state.selected;
+					break;
+				}
+				if (!xml.getLocalName().equals("state")) {
+					int line = xml.getLocation().getLineNumber();
+					throw new XMLStreamException("Expected end tag state at line " + line);	
+				}
+			
+				image.states.add(state);
+				s++;
+			}
+			if (!xml.getLocalName().equals("dynamic-image")) {
+				int line = xml.getLocation().getLineNumber();
+				throw new XMLStreamException("Expected end tag dynamic-image at line " + line);	
+			}
+			return image;
+		}
+		
 		Ring readRing() throws XMLStreamException {
 			Ring ring = new Ring();
 			AttributeLookup attrs = new AttributeLookup(xml);
@@ -726,6 +821,9 @@ public class XMLProject {
 					screen.widgets.add(image);
 				} else if (xml.getLocalName().equals("image")) {
 	 				Image image = readImage(new Image());
+	 				screen.widgets.add(image);
+				} else if (xml.getLocalName().equals("dynamic-image")) {
+	 				DynamicImage image = readDynamicImage();
 	 				screen.widgets.add(image);
 	 			} else if (xml.getLocalName().equals("text")) {
 					Text text = readText();

@@ -5,7 +5,8 @@
 <!ATTLIST project interface (CAN | USB) #REQUIRED>
 <!ATTLIST project default-screen CDATA "1">
 
-<!ELEMENT screen (variable*, (generic-widget | image| text | sector | cursor)+, (tap | swipe-up | swipe-down | swipe-left | swipe-right | rotate-cw | rotate-ccw)*) >
+<!ELEMENT screen (variable*, (generic-widget | image | background-image | dynamic-image | text | sector | cursor)+, 
+	(generic-event | tap | swipe-up | swipe-down | swipe-left | swipe-right | rotate-cw | rotate-ccw)*) >
 <!ATTLIST screen index CDATA #REQUIRED>
 
 
@@ -19,11 +20,36 @@
 <!ATTLIST variable exp CDATA "0">
 <!ATTLIST variable limits (limit | wrap) "limit">
 
+<!ELEMENT generic-widget CDATA>
+<!ATTLIST generic-widget index CDATA #REQUIRED>
+<!ATTLIST generic-widget type CDATA #REQUIRED>
+
 <!ELEMENT image EMPTY>
 <!ATTLIST image index CDATA #REQUIRED>
 <!ATTLIST image x CDATA "0">
 <!ATTLIST image y CDATA "0">
 <!ATTLIST image filename CDATA #REQUIRED>
+
+<!ELEMENT background-image EMPTY>
+<!ATTLIST background-image index CDATA #REQUIRED>
+<!ATTLIST background-image x CDATA "0">
+<!ATTLIST background-image y CDATA "0">
+<!ATTLIST background-image filename CDATA #REQUIRED>
+
+<!ELEMENT dynamic-image (state+)>
+<!ATTLIST dynamig-image index CDATA #REQUIRED>
+<!ATTLIST dynamic-image x CDATA "0">
+<!ATTLIST dynamic-image y CDATA "0">
+<!ATTLIST dynamic-image value-id CDATA #REQUIRED>
+<!ATTLIST dynamic-image filename CDATA #REQUIRED>
+
+<!ELEMENT state (subimag, subimage?)>
+
+<!ELEMENT subimage EMPTY>
+<!ATTLIST subimage x CDATA #REQUIRED>
+<!ATTLIST subimage y CDATA #REQUIRED>
+<!ATTLIST subimage width CDATA #REQUIRED>
+<!ATTLIST subimage height CDATA #REQUIRED>
 
 <!ELEMENT text EMPTY>
 <!ATTLIST text index CDATA #REQUIRED>
@@ -54,6 +80,9 @@
 <!ATTLIST sector inner-radius CDATA #IMPLIED>
 <!ATTLIST sector outer-color CDATA #REQUIRED>
 <!ATTLIST sector inner-color CDATA #IMPLIED>
+
+<!ELEMENT generic-event CDATA>
+<!ATTLIST generic-event type CDATA #REQUIRED>
 
 <!ELEMENT tap (goto|set)>
 <!ATTLIST tap x CDATA #REQUIRED>

@@ -46,7 +46,7 @@ import se.fluffware.grayhill.te.project.Resources;
 import se.fluffware.grayhill.te.project.Ring;
 import se.fluffware.grayhill.te.project.Screen;
 import se.fluffware.grayhill.te.project.Text;
-import se.fluffware.grayhill.te.project.Widget;
+import se.fluffware.grayhill.te.project.WidgetXY;
 import se.fluffware.grayhill.te.project.XMLProject;
 
 import org.fife.ui.rsyntaxtextarea.*;
@@ -325,7 +325,7 @@ public abstract class TE_tool {
 							ProjectUtils.remapImages(proj, map);
 							ProjectUtils.remapFonts(proj, map);
 							BinaryProject.saveProject(bin_proj, proj);
-						} catch (IOException e) {
+						} catch (Exception e) {
 							JOptionPane.showMessageDialog(XMLEditor.this,
 									"Failed to save binary project file " + bin_proj.getName() + ": " + e.getMessage());
 							return;
@@ -441,10 +441,10 @@ public abstract class TE_tool {
 					try {
 						proj = BinaryProject.loadProject(file);
 					} catch (IOException e) {
-						JOptionPane.showMessageDialog(XMLEditor.this, "Failed to read poject file: "+e.getMessage());
+						JOptionPane.showMessageDialog(XMLEditor.this, "Failed to read project file: "+e.getMessage());
 						return;
 					} catch (BinaryProject.Exception e) {
-						JOptionPane.showMessageDialog(XMLEditor.this, "Failed to parse poject file: "+e.getMessage());
+						JOptionPane.showMessageDialog(XMLEditor.this, "Failed to parse project file: "+e.getMessage());
 						return;
 					} 
 					
@@ -452,7 +452,7 @@ public abstract class TE_tool {
 						// Move package images to project root
 						HashSet<String> file_names = new HashSet<String>();
 						for (Screen s : proj.screens) {
-							for (Widget w : s.widgets) {
+							for (se.fluffware.grayhill.te.project.Widget w : s.widgets) {
 								if (w instanceof Image) {
 									file_names.add(((Image) w).filename);
 								} else if (w instanceof Ring) {

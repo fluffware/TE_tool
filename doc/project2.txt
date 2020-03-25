@@ -152,7 +152,7 @@ Text:
 18	p		Prefix. NUL-terminated
 18+p	s		Suffix. NUL-terminated
 
-Highlighted icons:
+Dynamic images:
 0	2		Block length
 2	2		Element index
 4	2		0x00a0
@@ -162,19 +162,20 @@ Highlighted icons:
 
 11	2		x
 13	2		y
-15	2		Position index zero based
+15	2		0x0000
 ...
 n	2		Selected subimage x
 n+2	2		Selected subimage y
 n+4	2		Selected subimage width
-n+4	2		Selected subimage height
-n+6	2		Unselected subimage x
-n+8	2		Unselected subimage y
-n+10	2		Unselected subimage width
-n+12	2		Unselected subimage height
-n+14	2		Image index zero based
+n+6	2		Selected subimage height
+n+8	2		Unselected subimage x
+n+10	2		Unselected subimage y
+n+12	2		Unselected subimage width
+n+14	2		Unselected subimage height
+n+16	2		Image index zero based
+n+18	2		0x0000
 ...
-m	2		Zero terminated filename
+m	s		Zero terminated filename
 
 Variable:
 0	2		Block length

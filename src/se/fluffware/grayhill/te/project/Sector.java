@@ -1,6 +1,6 @@
 package se.fluffware.grayhill.te.project;
 
-public class Sector extends Widget
+public class Sector extends WidgetXY
 {
 	public int startAngle;
 	public int endAngle;

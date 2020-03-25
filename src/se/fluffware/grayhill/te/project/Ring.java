@@ -1,6 +1,6 @@
 package se.fluffware.grayhill.te.project;
 
-public class Ring extends Widget
+public class Ring extends WidgetXY
 {
 	public int startAngle;
 	public int endAngle;

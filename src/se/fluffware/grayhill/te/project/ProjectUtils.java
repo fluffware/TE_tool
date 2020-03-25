@@ -149,26 +149,36 @@ public class ProjectUtils {
 		for (Screen s: proj.screens) {
 			for (Widget w : s.widgets) {
 			
-					if (w instanceof Image) {
-						Image image = (Image)w;
-						int dot = image.filename.lastIndexOf('.');
-						String ext;
-						if (dot > 0) {
-							ext = image.filename.substring(dot + 1);
-						} else {
-							ext = "png";
-						}
-						image.filename = remap(map, image.filename,"image_"+s.index+"_"+w.index+"."+ext);
-						
-					} else if (w instanceof Ring) {
-						Ring ring = (Ring) w;
-						String prefix = "ring_"+s.index+"_"+w.index+"_";
-						
-						ring.fullRingImage = remap(map, ring.fullRingImage, prefix+"full.png");
-						
-						ring.emptyRingImage = remap(map, ring.emptyRingImage, prefix+"empty.png");
-						
+				if (w instanceof Image) {
+					Image image = (Image)w;
+					int dot = image.filename.lastIndexOf('.');
+					String ext;
+					if (dot > 0) {
+						ext = image.filename.substring(dot + 1);
+					} else {
+						ext = "png";
+					}
+					image.filename = remap(map, image.filename,"image_"+s.index+"_"+w.index+"."+ext);
+
+				} else if (w instanceof Ring) {
+					Ring ring = (Ring) w;
+					String prefix = "ring_"+s.index+"_"+w.index+"_";
+
+					ring.fullRingImage = remap(map, ring.fullRingImage, prefix+"full.png");
+
+					ring.emptyRingImage = remap(map, ring.emptyRingImage, prefix+"empty.png");
+
 					ring.cursorImage = remap(map, ring.cursorImage, prefix + "cursor.png");
+				} if (w instanceof DynamicImage) {
+					DynamicImage image = (DynamicImage)w;
+					int dot = image.filename.lastIndexOf('.');
+					String ext;
+					if (dot > 0) {
+						ext = image.filename.substring(dot + 1);
+					} else {
+						ext = "png";
+					}
+					image.filename = remap(map, image.filename,"dynamic_images_"+s.index+"_"+w.index+"."+ext);
 				}
 			}
 		}

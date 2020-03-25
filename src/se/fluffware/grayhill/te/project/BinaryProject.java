@@ -26,6 +26,7 @@ public class BinaryProject {
 	static final int WIDGET_TYPE_RING = 5;
 	static final int WIDGET_TYPE_SECTOR = 0x20;
 	static final int WIDGET_TYPE_CURSOR = 0xe1;
+	static final int WIDGET_TYPE_DYN_IMAGE = 0xa0;
 
 	static final int EVENT_TYPE_TAP = 1;
 	static final int EVENT_TYPE_SWIPE = 2;
@@ -222,6 +223,9 @@ public class BinaryProject {
 		case WIDGET_TYPE_CURSOR:
 			w = readCursor(in);
 			break;
+		case WIDGET_TYPE_DYN_IMAGE:
+			w = readDynamicImage(in);
+			break;
 		default:
 			w = readGenericWidget(in, type, blockEnd);
 		}
@@ -258,7 +262,45 @@ public class BinaryProject {
 		return w;
 	}
 
-	
+	static DynamicImage.SubImage readSubImage(LEDataInputStream in) throws IOException, Exception {
+		DynamicImage.SubImage im = new DynamicImage.SubImage();
+		im.x = in.readUnsignedShort();
+		im.y = in.readUnsignedShort();
+		im.width = in.readUnsignedShort();
+		im.height = in.readUnsignedShort();
+		return im;
+	}
+	static public Widget readDynamicImage(LEDataInputStream in) throws IOException, Exception {
+		DynamicImage w = new DynamicImage();
+		long start = in.getPosition();
+		w.valueID = in.readUnsignedByte();
+		int nPos = in.readUnsignedShort();
+		if (nPos != 1) {
+			new Exception("Unexpected value at offset 7 in dynamic image widget");
+		}
+		int nPairs = in.readUnsignedShort();
+		w.x = in.readUnsignedShort();
+		w.y = in.readUnsignedShort();
+		if (in.readUnsignedShort() != 0x0000) {
+			new Exception("Unexpected value at offset 15 in dynamic image widget");
+		}
+		for (int p = 0; p < nPairs; p++) {
+			DynamicImage.State pair = new DynamicImage.State();
+			pair.selected = readSubImage(in);
+			pair.unselected = readSubImage(in);
+			pair.index = in.readUnsignedShort();
+			if (pair.index != p) {
+				new Exception("Index not sequential at offset "+(start+42- in.getPosition()) + " in dynamic image widget");
+			}
+			if (in.readUnsignedShort() != 0x0000) {
+				new Exception("Unexpected value at offset "+(start+4 - in.getPosition()) + " in dynamic image widget");
+			}
+			w.states.add(pair);
+		}
+		w.filename = in.readString();
+		in.readPadEven(in.getPosition() -start +1);
+		return w;
+	}
 
 	static public Widget readSector(LEDataInputStream in) throws IOException, Exception {
 		Sector w = new Sector();
@@ -383,7 +425,38 @@ public class BinaryProject {
 		out.writeUnsignedShort(image.y);
 		out.write(filename_bytes.toByteArray());
 	}
-
+	static void writeSubImage(LEDataOutputStream out, DynamicImage.SubImage image) throws IOException {
+		out.writeUnsignedShort(image.x);
+		out.writeUnsignedShort(image.y);
+		out.writeUnsignedShort(image.width);
+		out.writeUnsignedShort(image.height);
+	}
+	
+	static public void writeDynamicImage(LEDataOutputStream out, DynamicImage image) throws IOException {
+		ByteArrayOutputStream filename_bytes = new ByteArrayOutputStream();
+		LEDataOutputStream filename_out = new LEDataOutputStream(filename_bytes);
+		filename_out.writeString(image.filename);
+		filename_out.writePadEven(filename_bytes.size());
+		filename_out.close();
+		out.writeUnsignedShort(17 + 20 * image.states.size() + filename_bytes.size()); // Block length
+		out.writeUnsignedShort(image.index);
+		out.writeUnsignedShort(WIDGET_TYPE_DYN_IMAGE);
+		out.writeUnsignedByte(image.valueID);
+		out.writeUnsignedShort(0x0001);
+		out.writeUnsignedShort(image.states.size());
+		out.writeUnsignedShort(image.x);
+		out.writeUnsignedShort(image.y);
+		out.writeUnsignedShort(0x0000);
+		for (int s = 0; s < image.states.size(); s++) {
+			writeSubImage(out, image.states.get(s).selected);
+			writeSubImage(out, image.states.get(s).unselected);
+			out.writeUnsignedShort(s);
+			out.writeUnsignedShort(0x0000);
+		}
+		out.write(filename_bytes.toByteArray());
+		
+	}
+	
 	static public void writeText(LEDataOutputStream out, Text text) throws IOException {
 		ByteArrayOutputStream text_bytes = new ByteArrayOutputStream();
 		LEDataOutputStream text_out = new LEDataOutputStream(text_bytes);
@@ -499,7 +572,7 @@ public class BinaryProject {
 		out.writeBytes(event.data);
 	}		
 	
-	static public void writeScreen(LEDataOutputStream out, Screen screen) throws IOException {
+	static public void writeScreen(LEDataOutputStream out, Screen screen) throws IOException,Exception {
 		out.writeUnsignedShort(10); // Block length
 		out.writeUnsignedShort(screen.index);
 		out.writeUnsignedShort(screen.vars.size());
@@ -521,6 +594,10 @@ public class BinaryProject {
 				writeCursor(out, (Cursor) w);						
 			} else if (w instanceof GenericWidget) {
 				writeGenericWidget(out, (GenericWidget)w);
+			} else if (w instanceof DynamicImage) {
+				writeDynamicImage(out, (DynamicImage)w);
+			} else {
+				throw new Exception("Unhandled widget type: "+w.getClass().getName());
 			}
 		}
 		for (Event e : screen.events) {
@@ -536,7 +613,7 @@ public class BinaryProject {
 		}
 	}
 
-	static public void writeProject(LEDataOutputStream out, Project proj) throws IOException {
+	static public void writeProject(LEDataOutputStream out, Project proj) throws IOException,Exception {
 		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 		LEDataOutputStream screen_out = new LEDataOutputStream(bytes);
 		for (Screen s : proj.screens) {
@@ -560,7 +637,7 @@ public class BinaryProject {
 
 	}
 
-	static public Project saveProject(File file, Project proj) throws IOException {
+	static public Project saveProject(File file, Project proj) throws IOException,Exception {
 		FileOutputStream file_out = new FileOutputStream(file);
 		LEDataOutputStream data_out = new LEDataOutputStream(file_out);
 		writeProject(data_out, proj);
